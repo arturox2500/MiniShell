@@ -8,14 +8,15 @@
 #include "parser.h"
 
 
-void manejador();
+void manejador1();
+void manejador2();
 int ejecutar();
-int i,in,out,err,nc,bg;
+int l,in,out,err,nc,bg;
 tcommand * coms;
 int **pipes;
 pid_t * hijosActual;
 
-int main(int argc, char * argv) {
+int main(int argc, char * argv[]) {
 	if (argc > 1){
 		printf("El ejecutable %d no necesita argumentos\n",argv[0]);
 		return 1;
@@ -37,6 +38,7 @@ int main(int argc, char * argv) {
 		err = 0;
 		nc = 0;
 		bg = 0;
+		l = 0;
 		line = tokenize(buf);
 		if (line==NULL) {
 			printf("Error al leer la linea\nmsh> ");
@@ -63,7 +65,7 @@ int main(int argc, char * argv) {
 
 int ejecutar(){
 	hijosActual = (pid_t *)malloc(nc * sizeof(pid_t)); //Reservar nc espacios para los nc hijos
-	int j,k;
+	int i,j,k;
 	for(j = 0; j < nc; j++){
 		hijosActual[j] = 0;
 	}
@@ -72,7 +74,8 @@ int ejecutar(){
 		pipes[j] = (int *)malloc(2 * sizeof(int));
 		pipe(pipes[j]);
 	}
-	signal(SIGUSR1, manejador);
+	signal(SIGUSR1, manejador1);
+	signal(SIGUSR2, manejador2);
 	pid_t pid;
 	for (i = 0; i < nc; i++){
 		k = nc - 1 - i;
@@ -87,8 +90,11 @@ int ejecutar(){
 					close(pipes[nc - 2][0]);
 					dup2(pipes[nc - 2][1],STDOUT_FILENO);
 					close(pipes[nc - 2][1]);
+				} else { //Si solo hay un mandato a ejecutar
+					execvp(coms[k].filename,coms[k].argv);
+					perror("Error en execvp");
+    					exit(1);
 				}
-				pause();
 			} else if (i == 0){//Último Hijo a ejecutar
 				printf("i = %d\n",i);//BORRAR
 				close(pipes[0][1]);
@@ -98,6 +104,10 @@ int ejecutar(){
 					close(pipes[j][0]);
 					close(pipes[j][1]);
 				}
+				kill(getppid(), SIGUSR2);
+				execvp(coms[k].filename,coms[k].argv);
+				perror("Error en execvp");
+    				exit(1);
 			} else { //Los hijos del medio
 				printf("i = %d\n",i);//BORRAR
 				close(pipes[i][0]);
@@ -110,10 +120,11 @@ int ejecutar(){
 					close(pipes[j][0]);
 					close(pipes[j][1]);
 				}
+				kill(getppid(), SIGUSR2);
+				execvp(coms[k].filename,coms[k].argv);
+				perror("Error en execvp");
+    				exit(1);
 			}
-			execvp(coms[k].filename,coms[k].argv);
-			perror("Error en execvp");
-    			exit(1);
 		} else {
 			hijosActual[i] = pid;
 			if (i > 0){
@@ -123,9 +134,8 @@ int ejecutar(){
 			
 		}
 	}
-	kill(hijosActual[nc - 1], SIGUSR1);//Te aseguras que el último hijo sea último en ejecutar
 	for (j = 0; j < nc; j++){
-		wait(NULL);
+		waitpid(hijosActual[j], NULL, 0);
 	}
 	free(hijosActual);
 	for(j = 0; j < nc - 1; j++){
@@ -137,9 +147,17 @@ int ejecutar(){
 }
 
 
-void manejador(){
-	execvp(coms[nc - 1].filename,coms[nc - 1].argv);
+void manejador1(){
+	printf("Ejecuta\n");
+	execvp(coms[0].filename,coms[0].argv);
 	perror("Error en execvp");
     	exit(1);
 }
 
+void manejador2(){
+	l++;
+	printf("%d\n",l);
+	if (l >= nc - 1){
+		kill(hijosActual[nc - 1], SIGUSR1);//Te aseguras que el último hijo sea el último en ejecutar
+	}
+}
