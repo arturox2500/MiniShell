@@ -71,34 +71,21 @@ int ejecutar(tline *line){//,char * in, char * out, char * err, int bg){
 			fprintf(stderr, "Falló el fort()\n%s\n", strerror(errno));
 			exit(-1);
 		} else if (pid == 0){ //Código hijo i
+			if (i == nc - 1 && line->redirect_output != NULL){
+				redirect_stdout(line->redirect_output);
+			}
+			if (i == nc - 1 && line->redirect_error != NULL){
+				redirect_stderr(line->redirect_error);
+			}
 			if (i == 0){ //1º Hijo a ejecutar
 				if (line->redirect_input != NULL){
 					redirect_stdin(line->redirect_input);
 				}
-				
-				if(nc == 1 && line->redirect_output != NULL){
-					redirect_stdout(line->redirect_output);
-				}
-				
-				if(nc == 1 && line->redirect_error != NULL){
-					redirect_stderr(line->redirect_error);
-				}
-
-				 
-				 if (nc > 1){
+				if (nc > 1){
 					dup2(pipes[i][1],STDOUT_FILENO);
 				}
 			} else if (i == nc - 1){//Último Hijo a ejecutar
-				dup2(pipes[i - 1][0],STDIN_FILENO);
-				
-				if(line->redirect_output != NULL){
-					redirect_stdout(line->redirect_output);
-				}
-				if(line->redirect_error != NULL){
-					redirect_stderr(line->redirect_error);
-				}
-				
-				
+				dup2(pipes[i - 1][0],STDIN_FILENO);	
 			} else { //Los hijos del medio
 				dup2(pipes[i][1],STDOUT_FILENO);
 				dup2(pipes[i - 1][0],STDIN_FILENO);
