@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 #include "parser.h"
 
-int ejecutar(tline *line);//,char * in, char * out, char * err, int bg);
+int ejecutar(tline *line);
 void execute_cd(char *path);
 void print_dir();
 void redirect_stdin(char *input_file);
@@ -40,21 +40,26 @@ int main(int argc, char * argv[]) {
 		}
 		
 		if(line->commands[0].filename!=NULL){
-			ejecutar(line);// ,line->redirect_input,line->redirect_output,line->redirect_error,line->background);	
+			ejecutar(line);	
 		} else {
 			buf[strcspn(buf, "\n")] = '\0';
 			aux = strtok(buf, " ");
-			if (aux != NULL && strcmp(aux, "cd") == 0) {
-		    		path = strtok(NULL, " ");		    		
-		    		execute_cd(path);
-			}	
+			if (aux != NULL) {
+				if (strcmp(aux, "cd") == 0){
+			    		path = strtok(NULL, " ");		    		
+			    		execute_cd(path);
+			    	} else if(strcmp(aux, "exit") == 0){
+			    		//execute_exit(); llamada para eliminar todos los procesos a la mitad
+			    		break;//Se cierra
+			    	}
+			}
+				
 		}
-		
 	}
 	return 0;
 }
 
-int ejecutar(tline *line){//,char * in, char * out, char * err, int bg){
+int ejecutar(tline *line){
 	int i,j;
 	int nc = line->ncommands;
 	tcommand * coms = line->commands;
