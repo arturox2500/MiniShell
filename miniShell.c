@@ -74,16 +74,15 @@ int main(int argc, char * argv[]) {
 			    	}
 			}
 		}
-		if (time(NULL) - start < 5){
+		if (time(NULL) - start > 5){
 			for(j = 0; j < 20; j++){
 				if (hijosST[j] != 0){
 					pid_t result = waitpid(hijosST[j], NULL, WNOHANG);
 					if (result == hijosST[j]){
-						printf("El hijo con pid %d ha terminado\n",hijosST[j]);//BORRAR
 						hijosST[j] = 0;
 						for(k = 0; k < 21; k++){
 							if (rel[k][0] == j){
-								lineasbg[k] = " ";
+								lineasbg[k] = NULL;
 								rel[k][0] = 0;
 								rel[k][1] = 0;
 								orden = k;
