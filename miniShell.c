@@ -7,7 +7,9 @@
 #include "parser.h"
 #include <time.h>
 
+void comprobarHijos();
 int ejecutar(tline *line);
+void execute_bg(int N);
 void execute_cd(char *path);
 void print_dir();
 void redirect_stdin(char *input_file);
@@ -15,7 +17,9 @@ void redirect_stdout(char *output_file);
 void redirect_stderr(char *error_file);
 pid_t hijosST[20] = {0};
 char * lineasbg[21] = {" "};
-int rel[21][2] = {0,0};//0 para la posición dentro de hijosST y 1 para el estado, 0 running, 1 stopped
+int ncom[21];//guarda el numero de comandos de cada uno
+int * rel[21];//Para la posición dentro de hijosST
+int est[21] = {0};//0 running, 1 stopped
 int orden = 0;//Guarda la primera posición para lineasbg y rel
 
 int main(int argc, char * argv[]) {
@@ -26,7 +30,7 @@ int main(int argc, char * argv[]) {
 	time_t start = time(NULL);//hora inicial
 	char buf[1024];
 	char *path, *aux, *jobs;
-	int j,k;
+	int j,k,N;
 	tline * line;
 	lineasbg[0] = NULL;
 	while (1) {
@@ -47,6 +51,7 @@ int main(int argc, char * argv[]) {
 		}
 		buf[strcspn(buf, "\n")] = '\0';
 		if(line->commands[0].filename != NULL){
+			ncom[orden] = line->ncommands;
 			lineasbg[orden] = strdup(buf);
 			ejecutar(line);	
 		} else {
@@ -60,42 +65,80 @@ int main(int argc, char * argv[]) {
 			    	} else if (strcmp(aux, "jobs") == 0){
 			    		for(k = 0; k < 21; k++){
 						if (lineasbg[k] != NULL){
-							if (rel[k][1] == 0){
+							if (est[k] == 0){
 								jobs = "+  Running";
-							} else if (rel[k][1] == 1){	
+							} else if (est[k] == 1){	
 								jobs = "-  Stopped";
 							}
-							printf("[%d]%s             %s\n",rel[k][0],jobs,lineasbg[k]);
+							printf("[%d]%s             %s\n",k + 1,jobs,lineasbg[k]);
 						}
 					}
-			    	}else {//no se encontro el mandato
+			    	}else if (strcmp(aux, "bg") == 0){
+			    		path = strtok(NULL, " ");//Siguiente valor
+			    		N = atoi(path);
+					if (N <= 0){
+						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
+						continue;
+					}
+					if (N > 21){
+						printf("No existe ese comando en background\n");
+						continue;
+					}
+					N--;
+			    		execute_bg(N);
+			    	} else {//no se encontro el mandato
 			    		printf("No se encontro el comando\n");
 			    		continue;
 			    	}
 			}
 		}
-		if (time(NULL) - start > 5){
-			for(j = 0; j < 20; j++){
-				if (hijosST[j] != 0){
-					pid_t result = waitpid(hijosST[j], NULL, WNOHANG);
-					if (result == hijosST[j]){
-						hijosST[j] = 0;
-						for(k = 0; k < 21; k++){
-							if (rel[k][0] == j){
-								lineasbg[k] = NULL;
-								rel[k][0] = 0;
-								rel[k][1] = 0;
-								orden = k;
-							}
-						}
-					}
-				}
-			}
+		if (time(NULL) - start > 5){//Si han pasado más de 5 segundos desde la última comprobación
+			comprobarHijos();
 			start = time(NULL);
 		}
 	}
 	//Falta enviar kill a todos los procesos q falten por terminar
 	return 0;
+}
+
+void comprobarHijos(){
+	int i, j, k, l, sum;
+	for(i = 0; i < 20; i++){
+		if (hijosST[i] != 0){
+			pid_t result = waitpid(hijosST[i], NULL, WNOHANG);
+			if (result == hijosST[i]){
+				hijosST[i] = 0;
+				for(j = 0; j < 21; j++){
+					if (ncom[j] != 0){//Si existe algo en esta posición
+						k = 0;
+						while (k < ncom[j] && rel[j][k] != i){
+							k++;
+						}
+						if (rel[j][k] == i){//Si ha encontrado el proceso
+							break;
+						}
+					}
+				}
+				sum = 0;
+				for(l = 0; l < ncom[j]; l++){
+					if (rel[j][l] == -1){
+						sum++;
+					}			
+				}
+				rel[j][k] = -1;
+				if(sum == ncom[j] - 1){//Si ya no quedan más posiciones
+					lineasbg[j] = NULL;
+					ncom[j] = 0;
+					est[j] = 0;
+					if (orden > j){
+						orden = j;
+					}
+					free(rel[j]);
+				}
+			}
+		}
+	}
+
 }
 
 int ejecutar(tline *line){
@@ -160,9 +203,12 @@ int ejecutar(tline *line){
 		for (j = 0; j < nc; j++){
 			wait(NULL);
 		}
+		lineasbg[orden] = NULL;
+		ncom[orden] = 0;
 	} else{//background
 		pid_t result;
 		k = 0;
+		rel[orden] = (int *)malloc(nc * sizeof(int));
 		for (j = 0; j < nc; j++){
 			result = waitpid(hijosActual[j], NULL, WNOHANG);
 			if (result == 0){
@@ -170,9 +216,9 @@ int ejecutar(tline *line){
 					k++;
 				}
 				hijosST[k] = (pid_t)hijosActual[j];
+				rel[orden][j] = k;
 				if (j == nc - 1){//Si es el último comando
-					rel[orden][0] = k;//Guarda q posición de hijosST corresponde al último comando de la linea número orden
-					rel[orden][1] = 0;//Estado = Running
+					est[orden] = 0;//Estado = Running
 				}
 			}
 		}
@@ -183,6 +229,27 @@ int ejecutar(tline *line){
 	}
 	free(hijosActual);
 	return 0;
+}
+
+void execute_bg(int N){
+	if (lineasbg[N] == NULL){
+		printf("No existe ese comando en background\n");
+		return;
+	}
+	int j;
+	for(j = 0; j < ncom[N]; j++){
+		if (rel[N][j] != -1){
+			waitpid(hijosST[rel[N][j]],NULL,0);//Espera a q termine ese hijo
+			rel[N][j] = -1;
+		}
+	}
+	free(rel[N]);
+	lineasbg[N] = NULL;
+	ncom[N] = 0;
+	est[N] = 0;
+	if (orden > N){
+		orden = N;
+	}
 }
 
 void execute_cd(char *path){
