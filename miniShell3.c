@@ -127,7 +127,7 @@ void execute_cd(char *path){
 		path = home;
 	}	
 	if (chdir(path) != 0) {
-        	fprintf(stderr, "Fallo al cambiar la ruta\n%s\n", strerror(errno));
+        	fprintf(stderr, "%s\n", strerror(errno));
     	}    	
 }
 
