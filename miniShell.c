@@ -91,7 +91,7 @@ int ejecutar(tline *line){
 	for (i = 0; i < nc; i++){
 		pid = fork();
 		if (pid < 0){ //Error en el fork
-			fprintf(stderr, "Falló el fort()\n%s\n", strerror(errno));
+			fprintf(stderr, "%s\n", strerror(errno));
 			exit(-1);
 		} else if (pid == 0){ //Código hijo i
 			if (i == nc - 1 && line->redirect_output != NULL){
