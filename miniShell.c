@@ -14,6 +14,9 @@ void redirect_stdin(char *input_file);
 void redirect_stdout(char *output_file);
 void redirect_stderr(char *error_file);
 pid_t hijosST[20] = {0};
+char * lineasbg[21] = {" "};
+int rel[21][2] = {0,0};//0 para la posición dentro de hijosST y 1 para el estado, 0 running, 1 stopped
+int orden = 0;//Guarda la primera posición para lineasbg y rel
 
 int main(int argc, char * argv[]) {
 	if (argc > 1){
@@ -22,9 +25,10 @@ int main(int argc, char * argv[]) {
 	}
 	time_t start = time(NULL);//hora inicial
 	char buf[1024];
-	char *path, *aux;
-	int j;
+	char *path, *aux, *jobs;
+	int j,k;
 	tline * line;
+	lineasbg[0] = NULL;
 	while (1) {
 		print_dir();
 		printf(" msh> ");
@@ -32,22 +36,20 @@ int main(int argc, char * argv[]) {
 			if (feof(stdin)){
 				printf("\n");
 				break;
-			} 
+			}
 			fprintf(stderr, "Error: Fallo al leer la entrada: %s\n", strerror(errno));
 			continue;
 		}
 		line = tokenize(buf);
-		if (line == NULL) {
+		if (line == NULL || line->commands == NULL) {
 			printf("Error al entender la linea\n");
 			continue;
 		}
-		if (line->commands == NULL){
-			continue;
-		}
+		buf[strcspn(buf, "\n")] = '\0';
 		if(line->commands[0].filename != NULL){
+			lineasbg[orden] = strdup(buf);
 			ejecutar(line);	
 		} else {
-			buf[strcspn(buf, "\n")] = '\0';
 			aux = strtok(buf, " ");
 			if (aux != NULL) {
 				if (strcmp(aux, "cd") == 0){
@@ -55,10 +57,22 @@ int main(int argc, char * argv[]) {
 			    		execute_cd(path);
 			    	} else if(strcmp(aux, "exit") == 0){
 			    		break;//Se cierra
-			    	} else {//no se encontro el mandato
+			    	} else if (strcmp(aux, "jobs") == 0){
+			    		for(k = 0; k < 21; k++){
+						if (lineasbg[k] != NULL){
+							if (rel[k][1] == 0){
+								jobs = "+  Running";
+							} else if (rel[k][1] == 1){	
+								jobs = "-  Stopped";
+							}
+							printf("[%d]%s             %s\n",rel[k][0],jobs,lineasbg[k]);
+						}
+					}
+			    	}else {//no se encontro el mandato
+			    		printf("No se encontro el comando\n");
 			    		continue;
 			    	}
-			}	
+			}
 		}
 		if (time(NULL) - start < 5){
 			for(j = 0; j < 20; j++){
@@ -67,12 +81,21 @@ int main(int argc, char * argv[]) {
 					if (result == hijosST[j]){
 						printf("El hijo con pid %d ha terminado\n",hijosST[j]);//BORRAR
 						hijosST[j] = 0;
+						for(k = 0; k < 21; k++){
+							if (rel[k][0] == j){
+								lineasbg[k] = " ";
+								rel[k][0] = 0;
+								rel[k][1] = 0;
+								orden = k;
+							}
+						}
 					}
 				}
 			}
 			start = time(NULL);
 		}
 	}
+	//Falta enviar kill a todos los procesos q falten por terminar
 	return 0;
 }
 
@@ -91,7 +114,7 @@ int ejecutar(tline *line){
 	for (i = 0; i < nc; i++){
 		pid = fork();
 		if (pid < 0){ //Error en el fork
-			fprintf(stderr, "%s\n", strerror(errno));
+			fprintf(stderr, "Falló el fort()\n%s\n", strerror(errno));
 			exit(-1);
 		} else if (pid == 0){ //Código hijo i
 			if (i == nc - 1 && line->redirect_output != NULL){
@@ -143,12 +166,20 @@ int ejecutar(tline *line){
 		k = 0;
 		for (j = 0; j < nc; j++){
 			result = waitpid(hijosActual[j], NULL, WNOHANG);
-			if (result == hijosActual[j]){
+			if (result == 0){
 				while (hijosST[k] != 0){
 					k++;
 				}
 				hijosST[k] = (pid_t)hijosActual[j];
+				if (j == nc - 1){//Si es el último comando
+					rel[orden][0] = k;//Guarda q posición de hijosST corresponde al último comando de la linea número orden
+					rel[orden][1] = 0;//Estado = Running
+				}
 			}
+		}
+		orden++;
+		while(lineasbg[orden] != NULL){
+			orden++;//Guarda el siguiente valor al q acceder
 		}
 	}
 	free(hijosActual);
@@ -161,7 +192,7 @@ void execute_cd(char *path){
 		path = home;
 	}	
 	if (chdir(path) != 0) {
-        	fprintf(stderr, "Fallo al cambiar la ruta\n%s\n", strerror(errno));
+        	fprintf(stderr, "%s\n", strerror(errno));
     	}    	
 }
 
