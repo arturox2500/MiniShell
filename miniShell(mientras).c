@@ -418,7 +418,7 @@ void execute_umask(char *mask){
 
 void execute_exit() {
     for (int i = 0; i < 21; i++) {
-        if (rel[i] != NULL) {
+        if (ncom[i] != 0) {
             free(rel[i]);
         }
     }
