@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+int proceso_en_fg();
 void manejador_sigint(int sig);
 void manejador_sigtstp(int sig);
 void configurar_senales();
@@ -224,10 +225,7 @@ int ejecutar(tline *line){
 		}
 		for (j = 0; j < nc; j++){
 			wait(NULL);
-		}
-		
-		for (j = 0; j < nc; j++) {
-    			hijosFG[j] = 0;  // Restablecer los valores de hijosFG
+			hijosFG[j] = 0; // Restablecer los valores de hijosFG
 		}
 		
 		lineasbg[orden] = NULL;
@@ -364,23 +362,44 @@ void configurar_senales() {
 }
 
 void manejador_sigtstp(int sig) {
-    for (int i = 0; i < 20; i++) {
-        if (hijosST[i] != 0 && est[i] == 0) { // Si el proceso está activo
-            if (kill(hijosST[i], SIGTSTP) == 0) {
-                printf("Proceso con PID %d detenido.\n", hijosST[i]);
-                est[i] = 1; // Cambiar estado a detenido
-            } else {
-                perror("Error al detener proceso");
-            }
-        }
-    }
-    printf("\n");
+	int procs = proceso_en_fg();
+	if (procs != 0){ // si hay procesos en ejecucion
+		for(int i = 0; i<20; i++){
+			if (hijosFG[i] != 0){
+				if(kill(hijosFG[i], SIGTSTP) == 0){
+					printf("Proceso con PID %d terminado\n", hijosFG[i]);
+					 // ahora pasar a los otros arrays
+					int k = 0;
+					rel[orden] = (int *)malloc(procs * sizeof(int));
+					for (int j = 0; j < procs; j++){		
+						while (hijosST[k] != 0){
+							k++;
+						}
+						hijosST[k] = (pid_t)hijosFG[j];
+						rel[orden][j] = k;
+						if (j == procs- 1){//Si es el último comando
+							est[orden] = 1;//Estado = Stopped
+						}
+						
+					}
+					
+				}
+				hijosFG[i] = 0;
+			}
+		}
+		orden++;
+		while(lineasbg[orden] != NULL){
+			orden++;//Guarda el siguiente valor al q acceder
+		}
+	}
+	printf("\n"); 
+		
 }
 
 void manejador_sigint(int sig){
 	int c = 0;
 	for (int i = 0; i < 20; i++) {
-    		if (hijosFG[i] != 0) {
+    		if (hijosFG[i] != 0) { // verifica si existe
         		if (kill(hijosFG[i], 0) == 0) { // Verifica si el proceso está activo
             			if (kill(hijosFG[i], SIGKILL) == -1) {
                				fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
@@ -423,3 +442,15 @@ void execute_exit() {
         }
     }
 }
+
+int proceso_en_fg(){
+	int proc = 0;
+	for(int i = 0; i<20; i++){
+		if (hijosFG[i] != 0){
+			proc += 1;
+		}
+	}
+	return proc;
+}
+
+
