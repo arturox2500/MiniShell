@@ -23,6 +23,7 @@ void print_dir();
 void redirect_stdin(char *input_file);
 void redirect_stdout(char *output_file);
 void redirect_stderr(char *error_file);
+int check(pid_t p);
 pid_t hijosST[20] = {0};
 pid_t hijosFG[20] = {0};
 char * lineasbg[21] = {" "};
@@ -45,6 +46,9 @@ int main(int argc, char * argv[]) {
     	configurar_senales();
     	signal(SIGINT, manejador_sigint);
 	while (1) {
+		if (ncom[0] != 0){
+			//printf("rel[0][0] = %d\n",rel[0][0]);
+		}
 		print_dir();
 		printf(" msh> ");
 		if (fgets(buf, 1024, stdin) == NULL){
@@ -66,7 +70,6 @@ int main(int argc, char * argv[]) {
 		}
 		buf[strcspn(buf, "\n")] = '\0';
 		if(line->commands[0].filename != NULL){
-			ncom[orden] = line->ncommands;
 			lineasbg[orden] = strdup(buf);
 			ejecutar(line);	
 		} else {
@@ -147,7 +150,7 @@ void comprobarHijos(){
 				}
 				rel[j][k] = -1;
 				if(sum == ncom[j] - 1){//Si ya no quedan más posiciones
-					printf("[%d]+ Done             %s\n",j + 1,lineasbg[j]);
+					printf("[%d]+  Done             %s\n",j + 1,lineasbg[j]);
 					lineasbg[j] = NULL;
 					ncom[j] = 0;
 					est[j] = 0;
@@ -227,12 +230,11 @@ int ejecutar(tline *line){
 			wait(NULL);
 			hijosFG[j] = 0; // Restablecer los valores de hijosFG
 		}
-		
 		lineasbg[orden] = NULL;
-		ncom[orden] = 0;
 		
 	} else{//background
 		printf("[%d] %d\n",orden + 1,hijosActual[nc - 1]);
+		ncom[orden] = nc;
 		pid_t result;
 		k = 0;
 		rel[orden] = (int *)malloc(nc * sizeof(int));
@@ -263,7 +265,13 @@ int execute_bg(int N){
 		printf("No existe ese comando en background\n");
 		return 0;
 	}
+	printf("[%d]- %s",N + 1,lineasbg[N]);
 	int j;
+	for(j = 0; j < ncom[N]; j++){
+		if (rel[N][j] != -1){
+			hijosFG[j] = hijosST[rel[N][j]];
+		}
+	}
 	if (est[N] == 1){//Si el proceso estaba pausado
 		for(j = 0; j < ncom[N]; j++){
 			if (rel[N][j] != -1){
@@ -278,15 +286,19 @@ int execute_bg(int N){
 	for(j = 0; j < ncom[N]; j++){
 		if (rel[N][j] != -1){
 			waitpid(hijosST[rel[N][j]],NULL,0);//Espera a q termine ese hijo
-			rel[N][j] = -1;
 		}
 	}
-	free(rel[N]);
-	lineasbg[N] = NULL;
-	ncom[N] = 0;
-	est[N] = 0;
-	if (orden > N){
-		orden = N;
+	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el proceso
+		for(j = 0; j < ncom[N]; j++){
+			rel[N][j] = -1;
+		}
+		free(rel[N]);
+		lineasbg[N] = NULL;
+		ncom[N] = 0;
+		est[N] = 0;
+		if (orden > N){
+			orden = N;
+		}
 	}
 	return 0;
 }
@@ -375,38 +387,59 @@ void configurar_senales() {
 }
 
 void manejador_sigtstp(int sig) {
-	int procs = proceso_en_fg(),i,j,k;
+	int procs = proceso_en_fg(),i,j,k,l,pos;
 	if (procs != 0){ // si hay procesos en ejecucion
+		l = check(hijosFG[0]);
 		for(i = 0; i<20; i++){
 			if (hijosFG[i] != 0){
 				if(kill(hijosFG[i], SIGTSTP) == 0){
-					printf("Proceso con PID %d terminado\n", hijosFG[i]);
-					 // ahora pasar a los otros arrays
-					k = 0;
-					rel[orden] = (int *)malloc(procs * sizeof(int));
-					for (j = 0; j < procs; j++){		
-						while (hijosST[k] != 0){
-							k++;
+					if (l == -1){//Si no esta ya en las variables
+						k = 0;//ahora pasar a los otros arrays
+						rel[orden] = (int *)malloc(procs * sizeof(int));
+						for (j = 0; j < procs; j++){		
+							while (hijosST[k] != 0){
+								k++;
+							}
+							ncom[orden] = procs;
+							hijosST[k] = (pid_t)hijosFG[j];
+							rel[orden][j] = k;
+							if (j == procs- 1){//Si es el último comando
+								est[orden] = 1;//Estado = Stopped
+							}
 						}
-						hijosST[k] = (pid_t)hijosFG[j];
-						rel[orden][j] = k;
-						if (j == procs- 1){//Si es el último comando
-							est[orden] = 1;//Estado = Stopped
-						}
-						
+						pos = orden;
+					} else {
+						est[l] = 1;//Estado = Stopped
+						pos = l;
 					}
-					
 				}
 				hijosFG[i] = 0;
 			}
 		}
-		orden++;
-		while(lineasbg[orden] != NULL){
-			orden++;//Guarda el siguiente valor al q acceder
+		printf("[%d]+  Stopped             %s\n",pos + 1,lineasbg[pos]);
+		if (l == -1){
+			orden++;
+			while(lineasbg[orden] != NULL){
+				orden++;//Guarda el siguiente valor al q acceder
+			}
 		}
 	}
-	printf("\n"); 
 		
+}
+
+int check(pid_t p){
+	printf("Hola\n");
+	int i,j;
+	for(i = 0; i<21; i++){
+		if (ncom[i] != 0){
+			for(j = 0; j < ncom[i]; j++){
+				if(hijosST[rel[i][j]] == p){
+					return i;
+				}
+			}
+		}
+	}
+	return -1;
 }
 
 void manejador_sigint(int sig){
