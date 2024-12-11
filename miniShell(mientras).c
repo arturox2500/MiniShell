@@ -15,10 +15,10 @@ void manejador_sigtstp(int sig);
 void configurar_senales();
 void comprobarHijos();
 int ejecutar(tline *line);
-void execute_bg(int N);
+int execute_bg(int N);
 void execute_cd(char *path);
 void execute_umask(char *mask);
-void execute_exit();
+int execute_exit();
 void print_dir();
 void redirect_stdin(char *input_file);
 void redirect_stdout(char *output_file);
@@ -147,6 +147,7 @@ void comprobarHijos(){
 				}
 				rel[j][k] = -1;
 				if(sum == ncom[j] - 1){//Si ya no quedan más posiciones
+					printf("[%d]+ Done             %s\n",j + 1,lineasbg[j]);
 					lineasbg[j] = NULL;
 					ncom[j] = 0;
 					est[j] = 0;
@@ -158,7 +159,6 @@ void comprobarHijos(){
 			}
 		}
 	}
-
 }
 
 int ejecutar(tline *line){
@@ -232,6 +232,7 @@ int ejecutar(tline *line){
 		ncom[orden] = 0;
 		
 	} else{//background
+		printf("[%d] %d\n",orden + 1,hijosActual[nc - 1]);
 		pid_t result;
 		k = 0;
 		rel[orden] = (int *)malloc(nc * sizeof(int));
@@ -257,12 +258,23 @@ int ejecutar(tline *line){
 	return 0;
 }
 
-void execute_bg(int N){
+int execute_bg(int N){
 	if (lineasbg[N] == NULL){
 		printf("No existe ese comando en background\n");
-		return;
+		return 0;
 	}
 	int j;
+	if (est[N] == 1){//Si el proceso estaba pausado
+		for(j = 0; j < ncom[N]; j++){
+			if (rel[N][j] != -1){
+				if (kill(hijosST[rel[N][j]], SIGCONT) != 0) {//Si no es exitoso
+					perror("Error al intentar reanudar el proceso");
+					return 1;
+				}
+			}
+		}
+		est[N] = 0;
+	}
 	for(j = 0; j < ncom[N]; j++){
 		if (rel[N][j] != -1){
 			waitpid(hijosST[rel[N][j]],NULL,0);//Espera a q termine ese hijo
@@ -276,6 +288,7 @@ void execute_bg(int N){
 	if (orden > N){
 		orden = N;
 	}
+	return 0;
 }
 
 void execute_cd(char *path){
@@ -289,18 +302,18 @@ void execute_cd(char *path){
 }
 
 void print_dir() {
-    char cwd[1024];
-    char *home = getenv("HOME");
+	char cwd[1024];
+	char *home = getenv("HOME");
     
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        if (home != NULL && strncmp(cwd, home, strlen(home)) == 0) {
-            printf("~%s", cwd + strlen(home)); //reemplaza /home/user con ~ 
-        } else {
-            printf("%s\n", cwd);  // imprime directorio completo si no empieza en $HOME (/home/user)
-        }
-    } else {
-        fprintf(stderr, "Fallo al encontrar la ruta actual\n%s\n", strerror(errno));
-    }
+	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+		if (home != NULL && strncmp(cwd, home, strlen(home)) == 0) {
+		        printf("~%s", cwd + strlen(home)); //reemplaza /home/user con ~ 
+		} else {
+        		printf("%s\n", cwd);  // imprime directorio completo si no empieza en $HOME (/home/user)
+        	}
+	} else {
+	        fprintf(stderr, "Fallo al encontrar la ruta actual\n%s\n", strerror(errno));
+	}
 }
 
 void redirect_stdin(char *input_file) {
@@ -345,7 +358,7 @@ void redirect_stderr(char *error_file) {
         	fprintf(stderr, "Error al redirigir stderr a %s: %s\n", error_file, strerror(errno));
         	fclose(file);
         	return;
-    }
+	}
     	fclose(file);  
 }
 
@@ -362,16 +375,16 @@ void configurar_senales() {
 }
 
 void manejador_sigtstp(int sig) {
-	int procs = proceso_en_fg();
+	int procs = proceso_en_fg(),i,j,k;
 	if (procs != 0){ // si hay procesos en ejecucion
-		for(int i = 0; i<20; i++){
+		for(i = 0; i<20; i++){
 			if (hijosFG[i] != 0){
 				if(kill(hijosFG[i], SIGTSTP) == 0){
 					printf("Proceso con PID %d terminado\n", hijosFG[i]);
 					 // ahora pasar a los otros arrays
-					int k = 0;
+					k = 0;
 					rel[orden] = (int *)malloc(procs * sizeof(int));
-					for (int j = 0; j < procs; j++){		
+					for (j = 0; j < procs; j++){		
 						while (hijosST[k] != 0){
 							k++;
 						}
@@ -397,8 +410,8 @@ void manejador_sigtstp(int sig) {
 }
 
 void manejador_sigint(int sig){
-	int c = 0;
-	for (int i = 0; i < 20; i++) {
+	int c = 0,i;
+	for (i = 0; i < 20; i++) {
     		if (hijosFG[i] != 0) { // verifica si existe
         		if (kill(hijosFG[i], 0) == 0) { // Verifica si el proceso está activo
             			if (kill(hijosFG[i], SIGKILL) == -1) {
@@ -419,13 +432,13 @@ void manejador_sigint(int sig){
 }
 
 void execute_umask(char *mask){
+	mode_t mascara_act = umask(0); // nos da la máscara actual
+	char *endptr; //puntero para verificar las conversiones no validas
+	mode_t nueva_mask; 
 	if(mask == NULL){
-		mode_t mascara_act = umask(0); // nos da la máscara actual
 		umask(mascara_act); 
 		printf("%04o\n", mascara_act); // imprime la mascara en formato octal si no se pasan argumentos
 	} else {
-		char *endptr; //puntero para verificar las conversiones no validas
-		mode_t nueva_mask; 
 		nueva_mask = strtol(mask, &endptr, 8); // convierte la mascara en octal
 		if (*endptr != '\0') {
             		fprintf(stderr, "Error: Umask no valida '%s'. Debe ser un octal.\n", mask);
@@ -435,22 +448,28 @@ void execute_umask(char *mask){
 	}
 }
 
-void execute_exit() {
-    for (int i = 0; i < 21; i++) {
-        if (ncom[i] != 0) {
-            free(rel[i]);
-        }
-    }
+int execute_exit() {
+	int i,j;
+	for (i = 0; i < 21; i++) {
+		if (ncom[i] != 0) {
+			for(j = 0; j < ncom[i]; j++){
+				if (kill(hijosST[rel[i][j]], SIGTERM) != 0) {//Si no es exitoso
+					perror("Error al intentar matar el proceso");
+					return 1;
+				}
+			}
+			free(rel[i]);
+		}
+	}
+	return 0;
 }
 
 int proceso_en_fg(){
-	int proc = 0;
-	for(int i = 0; i<20; i++){
+	int proc = 0, i;
+	for(i = 0; i<20; i++){
 		if (hijosFG[i] != 0){
 			proc += 1;
 		}
 	}
 	return proc;
 }
-
-
