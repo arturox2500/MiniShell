@@ -11,7 +11,6 @@
 int proceso_en_fg();
 void manejador_sigint(int sig);
 void manejador_sigtstp(int sig);
-void configurar_senales();
 void comprobarHijos();
 int ejecutar(tline *line);
 int execute_bg(int N);
@@ -24,7 +23,7 @@ void redirect_stdout(char *output_file);
 void redirect_stderr(char *error_file);
 int check(pid_t p);
 pid_t hijosST[20] = {0};
-pid_t hijosFG[20] = {0};
+pid_t * hijosFG;
 char * lineasbg[21] = {" "};
 int ncom[21];//guarda el numero de comandos de cada uno
 int * rel[21];//Para la posición dentro de hijosST
@@ -41,8 +40,8 @@ int main(int argc, char * argv[]) {
 	int j,k,N;
 	tline * line;
 	lineasbg[0] = NULL;
-    	configurar_senales();
     	signal(SIGINT, manejador_sigint);
+    	signal(SIGTSTP, manejador_sigtstp);
 	while (1) {
 		if (ncom[0] != 0){
 			//printf("rel[0][0] = %d\n",rel[0][0]);
@@ -160,11 +159,13 @@ void comprobarHijos(){
 }
 
 int ejecutar(tline *line){
-	int i,j,k;
+	int i,j,k,status;
 	int nc = line->ncommands;
 	tcommand * coms = line->commands;
 	FILE *file;
 	pid_t * hijosActual = (pid_t *)malloc(nc * sizeof(pid_t));
+	hijosFG = (pid_t *)malloc((nc + 1) * sizeof(pid_t));
+	hijosFG[nc] = 0;
 	int ** pipes = (int **)malloc((nc - 1) * sizeof(int *));
 	for(j = 0; j < nc - 1; j++){
 		pipes[j] = (int *)malloc(2 * sizeof(int));
@@ -177,15 +178,6 @@ int ejecutar(tline *line){
 			fprintf(stderr, "Falló el fort()\n%s\n", strerror(errno));
 			exit(-1);
 		} else if (pid == 0){ //Código hijo i
-			// Devolver la acción por defecto de SIGTSTP
-			struct sigaction sa_default;
-			sa_default.sa_handler = SIG_DFL;
-			sa_default.sa_flags = 0;
-			sigemptyset(&sa_default.sa_mask);
-			if (sigaction(SIGTSTP, &sa_default, NULL) == -1) {
-				perror("Error al configurar SIGTSTP en el hijo");
-				exit(EXIT_FAILURE);
-			}
 			if (i == nc - 1 && line->redirect_output != NULL){
 				redirect_stdout(line->redirect_output);
 			}
@@ -229,13 +221,14 @@ int ejecutar(tline *line){
 	if (line->background == 0){//no es background
 		for (j = 0; j < nc; j++){
 			hijosFG[j] = (pid_t)hijosActual[j];
-		}
+		}		
 		for (j = 0; j < nc; j++){
-			wait(NULL);
-			hijosFG[j] = 0; // Restablecer los valores de hijosFG
+			waitpid(hijosFG[j], &status, WUNTRACED);
+			if (WIFEXITED(status)) { // si se acabo el proceso
+		    		hijosFG[j] = 0;
+			}	
 		}
 		lineasbg[orden] = NULL;
-		
 	} else{//background
 		printf("[%d] %d\n",orden + 1,hijosActual[nc - 1]);
 		ncom[orden] = nc;
@@ -260,6 +253,7 @@ int ejecutar(tline *line){
 			orden++;//Guarda el siguiente valor al q acceder
 		}
 	}
+	free(hijosFG);
 	free(hijosActual);
 	return 0;
 }
@@ -270,7 +264,10 @@ int execute_bg(int N){
 		return 0;
 	}
 	printf("[%d]- %s\n",N + 1,lineasbg[N]);
-	int j;
+	int j,status;
+	pid_t pgid;
+	hijosFG = (pid_t *)malloc((ncom[N] + 1) * sizeof(pid_t));
+	hijosFG[ncom[N]] = 0;
 	for(j = 0; j < ncom[N]; j++){
 		if (rel[N][j] != -1){
 			hijosFG[j] = hijosST[rel[N][j]];
@@ -289,7 +286,10 @@ int execute_bg(int N){
 	}
 	for(j = 0; j < ncom[N]; j++){
 		if (rel[N][j] != -1){
-			waitpid(hijosST[rel[N][j]],NULL,0);//Espera a q termine ese hijo
+			waitpid(hijosST[rel[N][j]], &status, WUNTRACED);//Espera a q termine ese hijo
+			if (WIFEXITED(status)) { // si se acabo el proceso
+		    		hijosFG[j] = 0;
+			}
 		}
 	}
 	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el proceso
@@ -303,6 +303,7 @@ int execute_bg(int N){
 		if (orden > N){
 			orden = N;
 		}
+		free(hijosFG);
 	}
 	return 0;
 }
@@ -373,21 +374,10 @@ void redirect_stderr(char *error_file) {
     	fclose(file);  
 }
 
-void configurar_senales() {
-        struct sigaction sa;
-        sa.sa_handler = manejador_sigtstp;
-        sa.sa_flags = 0; // No hay flags adicionales
-        sigemptyset(&sa.sa_mask); // No bloquear otras señales mientras manejamos SIGTSTP
-        if (sigaction(SIGTSTP, &sa, NULL) == -1) {
-        	perror("Error al configurar SIGTSTP");
-        	exit(1);
-	}
-}
 
 void manejador_sigtstp(int sig) {
 	int procs = proceso_en_fg(),j,k,pos;
 	pid_t pgid;
-	printf("h\n");
 	if (procs != 0){ //si hay procesos en ejecución
 		pgid = getpgid(hijosFG[0]); 
 		if (pgid == -1) {
@@ -420,9 +410,7 @@ void manejador_sigtstp(int sig) {
 			est[pos] = 1; // Estado detenido
 			printf("[%d]+  Stopped             %s\n", pos + 1, lineasbg[pos]);
 		}
-		for (j = 0; j < 20; j++) {//Limpia el array de hijosFG
-			hijosFG[j] = 0;
-		}
+		free(hijosFG);
 	}
 	fflush(stdout);	
 }
@@ -449,16 +437,16 @@ void manejador_sigint(int sig){
             			if (kill(hijosFG[i], SIGKILL) == -1) {
                				fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
             			}
-        		} 
-        		hijosFG[i] = 0;
+        		}
         		c = 1;
     		}
 	}
-	
 	printf("\n");
 	if (c == 0){
 		print_dir();
 		printf(" msh> ");
+	} else {
+		free(hijosFG);
 	}
 	fflush(stdout);
 }
@@ -497,11 +485,9 @@ int execute_exit() {
 }
 
 int proceso_en_fg(){//Cuenta los procesos sin terminar
-	int proc = 0, i;
-	for(i = 0; i<20; i++){
-		if (hijosFG[i] != 0){
-			proc += 1;
-		}
+	int proc = 0;
+	while (hijosFG[proc] != 0){
+		proc++;
 	}
-	return proc;
+	return proc - 1;
 }
