@@ -489,5 +489,5 @@ int proceso_en_fg(){//Cuenta los procesos sin terminar
 	while (hijosFG[proc] != 0){
 		proc++;
 	}
-	return proc - 1;
+	return proc;
 }
