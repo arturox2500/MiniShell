@@ -163,7 +163,6 @@ int ejecutar(tline *line){
 	int nc = line->ncommands;
 	tcommand * coms = line->commands;
 	FILE *file;
-	pid_t * hijosActual = (pid_t *)malloc(nc * sizeof(pid_t));
 	hijosFG = (pid_t *)malloc((nc + 1) * sizeof(pid_t));
 	hijosFG[nc] = 0;
 	int ** pipes = (int **)malloc((nc - 1) * sizeof(int *));
@@ -207,7 +206,7 @@ int ejecutar(tline *line){
 			perror("Error en execvp");
     			exit(1);
 		} else {
-			hijosActual[i] = pid;
+			hijosFG[i] = pid;
 			if (i > 0){
 				close(pipes[i - 1][0]);
 				close(pipes[i - 1][1]);
@@ -218,10 +217,7 @@ int ejecutar(tline *line){
 		free(pipes[j]);
 	}
 	free(pipes);
-	if (line->background == 0){//no es background
-		for (j = 0; j < nc; j++){
-			hijosFG[j] = (pid_t)hijosActual[j];
-		}		
+	if (line->background == 0){//no es background		
 		for (j = 0; j < nc; j++){
 			waitpid(hijosFG[j], &status, WUNTRACED);
 			if (WIFEXITED(status)) { // si se acabo el proceso
@@ -230,18 +226,18 @@ int ejecutar(tline *line){
 		}
 		lineasbg[orden] = NULL;
 	} else{//background
-		printf("[%d] %d\n",orden + 1,hijosActual[nc - 1]);
+		printf("[%d] %d\n",orden + 1,hijosFG[nc - 1]);
 		ncom[orden] = nc;
 		pid_t result;
 		k = 0;
 		rel[orden] = (int *)malloc(nc * sizeof(int));
 		for (j = 0; j < nc; j++){
-			result = waitpid(hijosActual[j], NULL, WNOHANG);
+			result = waitpid(hijosFG[j], NULL, WNOHANG);
 			if (result == 0){
 				while (hijosST[k] != 0){
 					k++;
 				}
-				hijosST[k] = (pid_t)hijosActual[j];
+				hijosST[k] = (pid_t)hijosFG[j];
 				rel[orden][j] = k;
 				if (j == nc - 1){//Si es el último comando
 					est[orden] = 0;//Estado = Running
@@ -253,8 +249,10 @@ int ejecutar(tline *line){
 			orden++;//Guarda el siguiente valor al q acceder
 		}
 	}
-	free(hijosFG);
-	free(hijosActual);
+	if (hijosFG != NULL){
+		free(hijosFG);
+		hijosFG = NULL;
+	}
 	return 0;
 }
 
@@ -303,7 +301,10 @@ int execute_bg(int N){
 		if (orden > N){
 			orden = N;
 		}
-		free(hijosFG);
+		if (hijosFG != NULL){
+			free(hijosFG);
+			hijosFG = NULL;
+		}
 	}
 	return 0;
 }
@@ -374,12 +375,18 @@ void redirect_stderr(char *error_file) {
     	fclose(file);  
 }
 
-
 void manejador_sigtstp(int sig) {
+	printf("0\n");//BORRAR
+	if (hijosFG == NULL){
+		return;
+	}
 	int procs = proceso_en_fg(),j,k,pos;
 	pid_t pgid;
+	printf("1\n");//BORRAR
 	if (procs != 0){ //si hay procesos en ejecución
+		printf("hijosFG[0] = %d\n",hijosFG[0]);//BORRAR
 		pgid = getpgid(hijosFG[0]); 
+		printf("pgid = %d\n",pgid);//BORRAR
 		if (pgid == -1) {
 			perror("Error al obtener el grupo de procesos");
 			return;
@@ -388,7 +395,9 @@ void manejador_sigtstp(int sig) {
 			perror("Error al enviar SIGTSTP al grupo de procesos");
 		    	return;
 		}
+		printf("2\n");//BORRAR
 		pos = check(hijosFG[0]);
+		printf("3\n");//BORRAR
 		if (pos == -1) { // Si no está en las variables, se añade
 			rel[orden] = (int *)malloc(procs * sizeof(int));
 			for (j = 0; j < procs; j++){
@@ -399,6 +408,7 @@ void manejador_sigtstp(int sig) {
 				hijosST[k] = (pid_t)hijosFG[j];
 				rel[orden][j] = k;
 			}
+			printf("4.1\n");//BORRAR
 			ncom[orden] = procs;
 			est[orden] = 1;//Estado = Stopped
 			printf("[%d]+  Stopped             %s\n", orden + 1, lineasbg[orden]);
@@ -407,10 +417,17 @@ void manejador_sigtstp(int sig) {
 				orden++;//Guarda el siguiente valor al q acceder
 			}
 		} else {
+			printf("4.2\n");//BORRAR
 			est[pos] = 1; // Estado detenido
 			printf("[%d]+  Stopped             %s\n", pos + 1, lineasbg[pos]);
 		}
-		free(hijosFG);
+		printf("5\n");//BORRAR
+		if (hijosFG != NULL){
+			free(hijosFG);
+			hijosFG = NULL;
+			printf("6\n");//BORRAR
+		}
+		printf("7\n");//BORRAR
 	}
 	fflush(stdout);	
 }
