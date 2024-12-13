@@ -38,7 +38,7 @@ int main(int argc, char * argv[]) {
 	}
 	char buf[1024];
 	char *path, *aux, *jobs;
-	int j,k,N;
+	int j,k,N,original_stdin,original_stdout,original_stderr;
 	tline * line;
 	lineasbg[0] = NULL;
     	signal(SIGINT, manejador_sigint);
@@ -70,6 +70,18 @@ int main(int argc, char * argv[]) {
 		} else {
 			aux = strtok(buf, " ");
 			if (aux != NULL) {
+				original_stdin = dup(STDIN_FILENO);
+				original_stdout = dup(STDOUT_FILENO);
+				original_stderr = dup(STDERR_FILENO);
+				if (line->redirect_input != NULL){
+					redirect_stdout(line->redirect_input);
+				}
+				if (line->redirect_output != NULL){
+					redirect_stdout(line->redirect_output);
+				}
+				if (line->redirect_error != NULL){
+					redirect_stderr(line->redirect_error);
+				}
 				if (strcmp(aux, "cd") == 0){
 			    		path = strtok(NULL, " ");		    		
 			    		execute_cd(path);
@@ -121,6 +133,12 @@ int main(int argc, char * argv[]) {
 			    		printf("No se encontro el comando\n");
 			    		continue;
 			    	}
+			    	dup2(original_stdout, STDOUT_FILENO);
+			    	dup2(original_stdin, STDIN_FILENO);
+			    	dup2(original_stderr, STDERR_FILENO);
+				close(original_stdout);
+				close(original_stdin);
+				close(original_stderr);
 			}
 		}
 	}
