@@ -496,7 +496,7 @@ void manejador_sigtstp(int sig) {
 			}
 			ncom[orden] = procs;
 			est[orden] = 1;//Estado = Stopped
-			printf("[%d]+  Stopped             %s\n", orden + 1, lineasbg[orden]);
+			printf("\n[%d]+  Stopped             %s\n", orden + 1, lineasbg[orden]);
 			orden++;
 			while(lineasbg[orden] != NULL){
 				orden++;//Guarda el siguiente valor al q acceder
