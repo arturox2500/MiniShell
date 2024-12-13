@@ -74,7 +74,7 @@ int main(int argc, char * argv[]) {
 				original_stdout = dup(STDOUT_FILENO);
 				original_stderr = dup(STDERR_FILENO);
 				if (line->redirect_input != NULL){
-					redirect_stdout(line->redirect_input);
+					redirect_stdin(line->redirect_input);
 				}
 				if (line->redirect_output != NULL){
 					redirect_stdout(line->redirect_output);
