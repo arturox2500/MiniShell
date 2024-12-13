@@ -14,6 +14,7 @@ void manejador_sigtstp(int sig);
 void comprobarHijos();
 int ejecutar(tline *line);
 int execute_bg(int N);
+int execute_fg(int N);
 void execute_cd(char *path);
 void execute_umask(char *mask);
 int execute_exit();
@@ -103,6 +104,19 @@ int main(int argc, char * argv[]) {
 					}
 					N--;
 			    		execute_bg(N);
+			    	} else if (strcmp(aux, "fg") == 0){
+			    		path = strtok(NULL, " ");//Siguiente valor
+			    		N = atoi(path);
+					if (N <= 0){
+						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
+						continue;
+					}
+					if (N > 21){
+						printf("No existe ese comando en background\n");
+						continue;
+					}
+					N--;
+			    		execute_fg(N);
 			    	} else {//no se encontro el mandato
 			    		printf("No se encontro el comando\n");
 			    		continue;
@@ -236,8 +250,9 @@ int ejecutar(tline *line){
 		}	
 		for (j = 0; j < nc; j++){
 			waitpid(hijosActual[j], &status, WUNTRACED);
-			if (status != 0){
+			if (status == -1){
 				perror("Error al terminar el hijo");
+				return 1;
 			}	
 		}
 		lineasbg[orden] = NULL;
@@ -252,7 +267,7 @@ int ejecutar(tline *line){
 			return 1;
 		}
 		for (j = 0; j < nc; j++){
-			result = waitpid(hijosActual[j], NULL, WNOHANG);
+			result = waitpid(hijosActual[j], &status, WNOHANG);
 			if (result == 0){
 				while (hijosST[k] != 0){
 					k++;
@@ -262,6 +277,10 @@ int ejecutar(tline *line){
 				if (j == nc - 1){//Si es el último comando
 					est[orden] = 0;//Estado = Running
 				}
+			}
+			if (status != 0){
+				perror("Error al terminar el hijo");
+				return 1;
 			}
 		}
 		orden++;
@@ -283,6 +302,49 @@ int execute_bg(int N){
 		return 0;
 	}
 	printf("[%d]- %s\n",N + 1,lineasbg[N]);
+	int j,status;
+	pid_t pgid;
+	if (est[N] == 1){//Si el proceso estaba pausado
+		for(j = 0; j < ncom[N]; j++){
+			if (rel[N][j] != -1){
+				if (kill(hijosST[rel[N][j]], SIGCONT) != 0) {//Si no es exitoso
+					perror("Error al intentar reanudar el proceso");
+					return 1;
+				}
+			}
+		}
+		est[N] = 0;
+	}
+	for(j = 0; j < ncom[N]; j++){
+		if (rel[N][j] != -1){
+			waitpid(hijosST[rel[N][j]], &status, WNOHANG);//Espera a q termine ese hijo
+			if (status != 0){
+				perror("Error al terminar el hijo");
+				return 1;
+			}	
+		}
+	}
+	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el último proceso
+		for(j = 0; j < ncom[N]; j++){
+			rel[N][j] = -1;
+		}
+		free(rel[N]);
+		lineasbg[N] = NULL;
+		ncom[N] = 0;
+		est[N] = 0;
+		if (orden > N){
+			orden = N;
+		}
+	}
+	return 0;
+}
+
+int execute_fg(int N){
+	if (lineasbg[N] == NULL){
+		printf("No existe ese comando en background\n");
+		return 0;
+	}
+	printf("%s\n",lineasbg[N]);
 	int j,status;
 	pid_t pgid;
 	hijosFG = (pid_t *)malloc((ncom[N] + 1) * sizeof(pid_t));
@@ -310,12 +372,13 @@ int execute_bg(int N){
 	for(j = 0; j < ncom[N]; j++){
 		if (rel[N][j] != -1){
 			waitpid(hijosST[rel[N][j]], &status, WUNTRACED);//Espera a q termine ese hijo
-			if (status != 0){
+			if (status == -1){
 				perror("Error al terminar el hijo");
-			}	
+				return 1;
+			}
 		}
 	}
-	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el proceso
+	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el último proceso
 		for(j = 0; j < ncom[N]; j++){
 			rel[N][j] = -1;
 		}
