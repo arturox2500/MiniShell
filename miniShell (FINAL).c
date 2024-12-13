@@ -503,7 +503,7 @@ void manejador_sigtstp(int sig) {
 			}
 		} else {
 			est[pos] = 1; // Estado detenido
-			printf("[%d]+  Stopped             %s\n", pos + 1, lineasbg[pos]);
+			printf("\n[%d]+  Stopped             %s\n", pos + 1, lineasbg[pos]);
 		}
 		if (hijosFG != NULL){
 			free(hijosFG);
