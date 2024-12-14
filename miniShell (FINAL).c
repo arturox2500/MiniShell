@@ -219,7 +219,7 @@ int main(int argc, char * argv[]) {
 			    			execute_fg(N);
 			    		}
 			    	} else {//no se encontro el mandato
-			    		printf("%d: No se encuentra el mandato\n",aux);
+			    		printf("%s: No se encuentra el mandato\n",aux);
 			    	}
 				if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
 					execute_exit();
