@@ -39,7 +39,7 @@ int main(int argc, char * argv[]) {
 	}
 	char buf[1024];
 	char *path, *aux, *jobs;
-	int j,k = 0,N,original_stdin,original_stdout,original_stderr;
+	int j,k,N,original_stdin,original_stdout,original_stderr;
 	tline * line;
 	lineasbg[0] = NULL;
     	signal(SIGINT, manejador_sigint);
@@ -470,9 +470,6 @@ int execute_fg(int N){
 		}
 	}
 	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el último proceso
-		for(j = 0; j < ncom[N]; j++){
-			rel[N][j] = -1;
-		}
 		free(rel[N]);
 		lineasbg[N] = NULL;
 		ncom[N] = 0;
