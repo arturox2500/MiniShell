@@ -220,7 +220,6 @@ void comprobarHijos(){
 
 int ejecutar(tline *line){
 	int i,j,k,status;
-	FILE *file;
 	pid_t * hijosActual = (pid_t *)malloc(line->ncommands * sizeof(pid_t));
 	if (hijosActual == NULL){
 		perror("Error al reservar memoria");
