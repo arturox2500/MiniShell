@@ -120,7 +120,7 @@ int main(int argc, char * argv[]) {
 			    		path = strtok(NULL, " ");
 			    		while (nred > 0){
 			    			jobs = strtok(NULL, " ");
-			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, "&>") == 0){
+			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, ">&") == 0){
 			    				nred++; 
 			    			}
 			    			nred--;
@@ -137,7 +137,7 @@ int main(int argc, char * argv[]) {
 			    	} else if (strcmp(aux, "jobs") == 0){
 			    		while (nred > 0){
 			    			path = strtok(NULL, " ");
-			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
+			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, ">&") == 0){
 			    				nred++;
 			    			}
 			    			nred--;
@@ -161,7 +161,7 @@ int main(int argc, char * argv[]) {
 			    		path = strtok(NULL, " ");
 			    		while (nred > 0){
 			    			jobs = strtok(NULL, " ");
-			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, "&>") == 0){
+			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, ">&") == 0){
 			    				nred++;
 			    			}
 			    			nred--;
@@ -183,7 +183,7 @@ int main(int argc, char * argv[]) {
 					}
 					while (nred > 0){
 			    			path = strtok(NULL, " ");
-			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
+			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, ">&") == 0){
 			    				nred++;
 			    			}
 			    			nred--;
@@ -206,7 +206,7 @@ int main(int argc, char * argv[]) {
 					}
 					while (nred > 0){
 			    			path = strtok(NULL, " ");
-			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
+			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, ">&") == 0){
 			    				nred++;
 			    			}
 			    			nred--;
