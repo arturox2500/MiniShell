@@ -454,6 +454,10 @@ int execute_fg(int N){
 			if (rel[N][j] != -1){
 				if (kill(hijosST[rel[N][j]], SIGCONT) != 0) {//Si no es exitoso
 					perror("Error al intentar reanudar el proceso");
+					if (hijosFG != NULL){
+						free(hijosFG);
+						hijosFG = NULL;
+					}
 					return 1;
 				}
 			}
@@ -465,6 +469,10 @@ int execute_fg(int N){
 			waitpid(hijosST[rel[N][j]], &status, WUNTRACED);//Espera a q termine ese hijo
 			if (status == -1){
 				perror("Error al terminar el hijo");
+				if (hijosFG != NULL){
+					free(hijosFG);
+					hijosFG = NULL;
+				}
 				return 1;
 			}
 		}
