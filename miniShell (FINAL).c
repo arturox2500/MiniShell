@@ -52,6 +52,7 @@ int main(int argc, char * argv[]) {
 		if (fgets(buf, 1024, stdin) == NULL){
 			if (feof(stdin)){
 				printf("\n");
+				execute_exit();
 				return 1;
 			}
 			if (errno == EINTR) {// Si el error es una interrupción por señal, se ignora
@@ -86,6 +87,7 @@ int main(int argc, char * argv[]) {
 			lineasbg[orden] = strdup(buf);
 			k = ejecutar(line);
 			if (k == 2){
+				execute_exit();
 				return 1;
 			}	
 		} else {
@@ -113,6 +115,7 @@ int main(int argc, char * argv[]) {
 				}
 				if (k != 0){//Si falla la lectura o escritura de ficheros
 					if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+						execute_exit();
 						return 1;
 					}
 					continue;//En la función lo notifica al usuario
@@ -122,7 +125,7 @@ int main(int argc, char * argv[]) {
 			    		while (nred > 0){
 			    			jobs = strtok(NULL, " ");
 			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, "&>") == 0){
-			    				nred++;
+			    				nred++; 
 			    			}
 			    			nred--;
 			    		}
@@ -130,6 +133,7 @@ int main(int argc, char * argv[]) {
 			    		if (jobs != NULL){
 			    			printf("El comando cd solo necesita 1 parámetro\n");
 			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+			    				execute_exit();
 							return 1;
 						}
 			    			continue;
@@ -147,6 +151,7 @@ int main(int argc, char * argv[]) {
 			    		if (path != NULL){
 			    			printf("El comando exit no necesita parámetros\n");
 			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+			    				execute_exit();
 							return 1;
 						}
 			    			continue;
@@ -165,6 +170,7 @@ int main(int argc, char * argv[]) {
 			    		if (path != NULL){
 			    			printf("El comando jobs no necesita parámetros\n");
 			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+			    				execute_exit();
 							return 1;
 						}
 			    			continue;
@@ -192,6 +198,7 @@ int main(int argc, char * argv[]) {
 			    		if (jobs != NULL){
 			    			printf("El comando umask solo necesita 1 parámetro\n");
 			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+			    				execute_exit();
 							return 1;
 						}
 			    			continue;
@@ -203,6 +210,7 @@ int main(int argc, char * argv[]) {
 					if (N <= 0){
 						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
 						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							execute_exit();
 							return 1;
 						}
 						continue;
@@ -210,6 +218,7 @@ int main(int argc, char * argv[]) {
 					if (N > 21){
 						printf("No existe ese comando en background\n");
 						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							execute_exit();
 							return 1;
 						}
 						continue;
@@ -226,6 +235,7 @@ int main(int argc, char * argv[]) {
 					if (path != NULL){
 			    			printf("El comando bg solo necesita 1 parámetro\n");
 			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+			    				execute_exit();
 							return 1;
 						}
 			    			continue;
@@ -237,6 +247,7 @@ int main(int argc, char * argv[]) {
 					if (N <= 0){
 						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
 						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							execute_exit();
 							return 1;
 						}
 						continue;
@@ -244,6 +255,7 @@ int main(int argc, char * argv[]) {
 					if (N > 21){
 						printf("No existe ese comando en background\n");
 						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							execute_exit();
 							return 1;
 						}
 						continue;
@@ -260,6 +272,7 @@ int main(int argc, char * argv[]) {
 					if (path != NULL){
 			    			printf("El comando fg solo necesita 1 parámetro\n");
 			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+			    				execute_exit();
 							return 1;
 						}
 			    			continue;
@@ -268,11 +281,13 @@ int main(int argc, char * argv[]) {
 			    	} else {//no se encontro el mandato
 			    		printf("No se encontro el comando\n");
 			    		if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+			    			execute_exit();
 						return 1;
 					}
 			    		continue;
 			    	}
 				if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+					execute_exit();
 					return 1;
 				}
 			}
@@ -460,7 +475,7 @@ int ejecutar(tline *line){
 			if (result == 0){
 				while (hijosST[k] != 0){
 					if (k + 1 > 20){
-						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales");
+						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales\n");
 						for (j = 0; j<line->ncommands; j++){
 							if (hijosFG[j] != 0){
 								if (kill(-hijosFG[j], 0) == 0){
@@ -469,6 +484,11 @@ int ejecutar(tline *line){
 										return 2;
 									}
 								}
+							}
+						}
+						for (k = 0; k < line->ncommands; k++){
+							if (rel[orden][k] != 0){
+								hijosST[rel[orden][k]] = 0;
 							}
 						}
 						liberarMemoria(pipes, hijosActual, line->ncommands);
@@ -484,8 +504,9 @@ int ejecutar(tline *line){
 				if (j == line->ncommands - 1){//Si es el último comando
 					est[orden] = 0;//Estado = Running
 				}
-			}
-			if (status != 0 && result != hijosActual[j]){
+			} if (result == hijosActual[j]){
+				hijosST[k] = 0;
+			} else if (status != 0){
 				perror("Error al terminar el hijo");
 				free(rel[orden]);
 				lineasbg[orden] = NULL;
@@ -541,7 +562,10 @@ int execute_bg(int N){
 			if (status != 0 && result != hijosST[rel[N][j]]){//Si se produce algún error
 				perror("Error al terminar el hijo");
 				return 1;
-			}	
+			}
+			if (result == hijosST[rel[N][j]]){//Cuando ha terminado
+				hijosST[rel[N][j]] = 0;
+			}
 		}
 	}
 	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el último proceso
@@ -600,6 +624,7 @@ int execute_fg(int N){
 				}
 				return 1;
 			}
+			hijosST[rel[N][j]] = 0;
 		}
 	}
 	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el último proceso
@@ -714,7 +739,7 @@ void manejador_sigtstp(int sig) {
 				k = 0;//ahora pasar a los otros arrays		
 				while (hijosST[k] != 0){
 					if (k + 1 > 20){
-						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales\n");
+						printf("\nNo hay espacio para que meter más procesos en background, espere a que terminen los actuales\n");
 						for (j = 0; j<procs; j++){
 							if (hijosFG[j] != 0){
 								if (kill(-hijosFG[j], 0) == 0){
@@ -722,6 +747,11 @@ void manejador_sigtstp(int sig) {
 										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
 									}
 								}
+							}
+						}
+						for (k = 0; k < procs; k++){
+							if (rel[orden][k] != 0){
+								hijosST[rel[orden][k]] = 0;
 							}
 						}
 						if (hijosFG != NULL){
