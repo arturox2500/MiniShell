@@ -93,7 +93,7 @@ int main(int argc, char * argv[]) {
 				original_stderr = dup(STDERR_FILENO);
 				if (original_stdin == -1 || original_stdout == -1 || original_stderr == -1){
 					perror("Error al guardar los descriptores originales");
-					return 1;
+					continue;
 				}
 				if (line->redirect_input != NULL){
 					k = redirect_stdin(line->redirect_input);
