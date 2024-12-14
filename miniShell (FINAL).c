@@ -13,15 +13,16 @@ void manejador_sigint(int sig);
 void manejador_sigtstp(int sig);
 void comprobarHijos();
 int ejecutar(tline *line);
+void liberarMemoria(int ** pipes, pid_t * hijosActual, int nc);
 int execute_bg(int N);
 int execute_fg(int N);
 void execute_cd(char *path);
 void execute_umask(char *mask);
 int execute_exit();
 void print_dir();
-void redirect_stdin(char *input_file);
-void redirect_stdout(char *output_file);
-void redirect_stderr(char *error_file);
+int redirect_stdin(char *input_file);
+int redirect_stdout(char *output_file);
+int redirect_stderr(char *error_file);
 int check(pid_t p);
 pid_t hijosST[20] = {0};
 pid_t * hijosFG;
@@ -38,7 +39,7 @@ int main(int argc, char * argv[]) {
 	}
 	char buf[1024];
 	char *path, *aux, *jobs;
-	int j,k,N,original_stdin,original_stdout,original_stderr;
+	int j,k = 0,N,original_stdin,original_stdout,original_stderr;
 	tline * line;
 	lineasbg[0] = NULL;
     	signal(SIGINT, manejador_sigint);
@@ -52,35 +53,58 @@ int main(int argc, char * argv[]) {
 				break;
 			}
 			if (errno == EINTR) {// Si el error es una interrupción por señal, se ignora
-                	continue;
+                		continue;
             		}
 			fprintf(stderr, "Error: Fallo al leer la entrada: %s\n", strerror(errno));
 			continue;
 		}
 		line = tokenize(buf);
 		comprobarHijos();
+		if (orden > 21){//Para evitar sobrepasar el limite
+			printf("No hay espacio para más procesos, espere que termine un proceso en background\n");
+			continue;
+		}
 		if (line == NULL || line->commands == NULL) {
 			printf("Error al entender la linea\n");
 			continue;
 		}
 		buf[strcspn(buf, "\n")] = '\0';
 		if(line->commands[0].filename != NULL){
+			N = 0;
+			for (k = 0; k < line->ncommands; k++){
+				if (line->commands[k].filename == NULL){
+					printf("El comando número %d no se encontró\n",k + 1);
+					N = 1;
+					break;
+				}
+			}
+			if (N == 1){
+				continue;
+			}
 			lineasbg[orden] = strdup(buf);
 			ejecutar(line);	
 		} else {
 			aux = strtok(buf, " ");
 			if (aux != NULL) {
+				k = 0;
 				original_stdin = dup(STDIN_FILENO);
 				original_stdout = dup(STDOUT_FILENO);
 				original_stderr = dup(STDERR_FILENO);
+				if (original_stdin == -1 || original_stdout == -1 || original_stderr == -1){
+					perror("Error al guardar los descriptores originales");
+					break;
+				}
 				if (line->redirect_input != NULL){
-					redirect_stdin(line->redirect_input);
+					k = redirect_stdin(line->redirect_input);
 				}
 				if (line->redirect_output != NULL){
-					redirect_stdout(line->redirect_output);
+					k = redirect_stdout(line->redirect_output);
 				}
 				if (line->redirect_error != NULL){
-					redirect_stderr(line->redirect_error);
+					k = redirect_stderr(line->redirect_error);
+				}
+				if (k != 0){//Si falla la lectura o escritura de ficheros
+					continue;//En la función lo notifica al usuario
 				}
 				if (strcmp(aux, "cd") == 0){
 			    		path = strtok(NULL, " ");		    		
@@ -133,9 +157,18 @@ int main(int argc, char * argv[]) {
 			    		printf("No se encontro el comando\n");
 			    		continue;
 			    	}
-			    	dup2(original_stdout, STDOUT_FILENO);
-			    	dup2(original_stdin, STDIN_FILENO);
-			    	dup2(original_stderr, STDERR_FILENO);
+			    	if (dup2(original_stdout, STDOUT_FILENO) == -1){
+			    		fprintf(stderr, "Error al redirigir stdout al original: %s\n",strerror(errno));
+					break;
+				}
+			    	if (dup2(original_stdin, STDIN_FILENO) == -1){
+			    		fprintf(stderr, "Error al redirigir stdin al original: %s\n", strerror(errno));
+					break;
+				}
+			    	if (dup2(original_stderr, STDERR_FILENO) == -1){
+			    		fprintf(stderr, "Error al redirigir stderr al original: %s\n", strerror(errno));
+			    		break;
+			    	}
 				close(original_stdout);
 				close(original_stdin);
 				close(original_stderr);
@@ -198,18 +231,22 @@ int ejecutar(tline *line){
 	hijosFG = (pid_t *)malloc((nc + 1) * sizeof(pid_t));
 	if (hijosFG == NULL){
 		perror("Error al reservar memoria");
+		free(hijosActual);
 		return 1;
 	}
 	hijosFG[nc] = 0;
 	int ** pipes = (int **)malloc((nc - 1) * sizeof(int *));
 	if (pipes == NULL){
 		perror("Error al reservar memoria");
+		free(hijosActual);
+		free(hijosFG);
 		return 1;
 	}
 	for(j = 0; j < nc - 1; j++){
 		pipes[j] = (int *)malloc(2 * sizeof(int));
-		if (pipes[i] == NULL){
+		if (pipes[j] == NULL){
 			perror("Error al reservar memoria");
+			liberarMemoria(pipes, hijosActual, j);
 			return 1;
 		}
 		pipe(pipes[j]);
@@ -222,25 +259,43 @@ int ejecutar(tline *line){
 			exit(-1);
 		} else if (pid == 0){ //Código hijo i
 			if (i == nc - 1 && line->redirect_output != NULL){
-				redirect_stdout(line->redirect_output);
+				if (redirect_stdout(line->redirect_output) == 1){
+					exit(-1);
+				}
 			}
 			if (i == nc - 1 && line->redirect_error != NULL){
-				redirect_stderr(line->redirect_error);
+				if (redirect_stderr(line->redirect_error) == 1){
+					exit(-1);
+				}
 			}
 			if (i == 0){ //1º Hijo a ejecutar
 				if (line->redirect_input != NULL){
-					redirect_stdin(line->redirect_input);
+					if (redirect_stdin(line->redirect_input) == 1){
+						exit(-1);
+					}
 				}
 				if (nc > 1){
-					dup2(pipes[i][1],STDOUT_FILENO);
+					if (dup2(pipes[i][1],STDOUT_FILENO) == -1){
+						fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
+						exit(-1);
+					}
 				}
 			} else if (i == nc - 1){//Último Hijo a ejecutar
-				dup2(pipes[i - 1][0],STDIN_FILENO);	
+				if (dup2(pipes[i - 1][0],STDIN_FILENO) == -1){
+					fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
+					exit(-1);
+				}
 			} else { //Los hijos del medio
-				dup2(pipes[i][1],STDOUT_FILENO);
-				dup2(pipes[i - 1][0],STDIN_FILENO);
+				if (dup2(pipes[i][1],STDOUT_FILENO) == -1){
+					fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
+					exit(-1);
+				}
+				if (dup2(pipes[i - 1][0],STDIN_FILENO) == -1){
+					fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
+					exit(-1);
+				}
 			}
-			for (j = i - 1; j < nc - 1;j++){//
+			for (j = i - 1; j < nc - 1;j++){
 				if (j >= 0){
 					close(pipes[j][0]);
 					close(pipes[j][1]);
@@ -248,20 +303,15 @@ int ejecutar(tline *line){
 			}
 			execvp(coms[i].filename,coms[i].argv);
 			perror("Error en execvp");
-    			exit(1);
+    			exit(-1);
 		} else {
 			hijosActual[i] = pid;
-			
 			if (i > 0){
 				close(pipes[i - 1][0]);
 				close(pipes[i - 1][1]);
 			}
 		}
 	}
-	for (j = 0; j < nc - 1;j++){
-		free(pipes[j]);
-	}
-	free(pipes);
 	if (line->background == 0){//no es background
 		for (j = 0; j < nc; j++){
 			hijosFG[j] = hijosActual[j];
@@ -270,8 +320,9 @@ int ejecutar(tline *line){
 			waitpid(hijosActual[j], &status, WUNTRACED);
 			if (status == -1){
 				perror("Error al terminar el hijo");
+				liberarMemoria(pipes, hijosActual, nc);
 				return 1;
-			}	
+			}
 		}
 		lineasbg[orden] = NULL;
 	} else{//background
@@ -282,12 +333,21 @@ int ejecutar(tline *line){
 		rel[orden] = (int *)malloc(nc * sizeof(int));
 		if (rel[orden] == NULL){
 			perror("Error al reservar memoria");
+			liberarMemoria(pipes, hijosActual, nc);
 			return 1;
 		}
 		for (j = 0; j < nc; j++){
 			result = waitpid(hijosActual[j], &status, WNOHANG);
 			if (result == 0){
 				while (hijosST[k] != 0){
+					if (k + 1 > 20){
+						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales");
+						liberarMemoria(pipes, hijosActual, nc);
+						free(rel[orden]);
+						lineasbg[orden] = NULL;
+						est[orden] = 0;
+						return 1;
+					}
 					k++;
 				}
 				hijosST[k] = (pid_t)hijosActual[j];
@@ -298,6 +358,10 @@ int ejecutar(tline *line){
 			}
 			if (status != 0){
 				perror("Error al terminar el hijo");
+				free(rel[orden]);
+				lineasbg[orden] = NULL;
+				est[orden] = 0;
+				liberarMemoria(pipes, hijosActual, nc);
 				return 1;
 			}
 		}
@@ -306,12 +370,21 @@ int ejecutar(tline *line){
 			orden++;//Guarda el siguiente valor al q acceder
 		}
 	}
+	liberarMemoria(pipes, hijosActual, nc);
+	return 0;
+}
+
+void liberarMemoria(int ** pipes, pid_t * hijosActual, int nc){
+	int j;
+	for (j = 0; j < nc - 1;j++){
+		free(pipes[j]);
+	}
+	free(pipes);
 	free(hijosActual);
 	if (hijosFG != NULL){
 		free(hijosFG);
 		hijosFG = NULL;
 	}
-	return 0;
 }
 
 int execute_bg(int N){
@@ -439,46 +512,49 @@ void print_dir() {
 	}
 }
 
-void redirect_stdin(char *input_file) {
+int redirect_stdin(char *input_file) {
     	FILE *file = fopen(input_file, "r");  
     	if (!file) {
         	fprintf(stderr, "Falló lectura de fichero: %s\n", strerror(errno));
-        	return;
+        	return 1;
     	}
     	if (dup2(fileno(file), STDIN_FILENO) == -1) {// Redirigir STDIN a este fichero
         	fprintf(stderr, "Error al redirigir stdin: %s\n", strerror(errno));
         	fclose(file);
-        	return;
+        	return 1;
     	}
-    	fclose(file);  
+    	fclose(file);
+    	return 0;  
 }
 
-void redirect_stdout(char *output_file) {
+int redirect_stdout(char *output_file) {
     	FILE *file = fopen(output_file, "w"); 
     	if (!file) {
 		fprintf(stderr, "Falló escritura a fichero %s: %s\n", output_file, strerror(errno));
-		return;
+		return 1;
     	}
     	if (dup2(fileno(file), STDOUT_FILENO) == -1) { // Redirigir STDOUT a este fichero
 		fprintf(stderr, "Error al redirigir stdout a %s: %s\n", output_file, strerror(errno));
 		fclose(file);
-		return;
+		return 1;
     	}
-    	fclose(file);  
+    	fclose(file); 
+    	return 0; 
 }
 
-void redirect_stderr(char *error_file) {
+int redirect_stderr(char *error_file) {
     	FILE *file = fopen(error_file, "w");  
     	if (!file) {
         	fprintf(stderr, "Falló escritura a fichero: %s\n", strerror(errno));
-        	return;
+        	return 1;
     	}
     	if (dup2(fileno(file), STDERR_FILENO) == -1) {// Redirigir STDERR a este archivo
         	fprintf(stderr, "Error al redirigir stderr a %s: %s\n", error_file, strerror(errno));
         	fclose(file);
-        	return;
+        	return 1;
 	}
     	fclose(file);  
+    	return 0;
 }
 
 void manejador_sigtstp(int sig) {
