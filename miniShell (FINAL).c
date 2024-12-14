@@ -390,7 +390,7 @@ void liberarMemoria(int ** pipes, pid_t * hijosActual, int nc){
 int execute_bg(int N){
 	if (lineasbg[N] == NULL){
 		printf("No existe ese comando en background\n");
-		return 0;
+		return 1;
 	}
 	printf("[%d]- %s\n",N + 1,lineasbg[N]);
 	int j,status;
@@ -433,7 +433,7 @@ int execute_bg(int N){
 int execute_fg(int N){
 	if (lineasbg[N] == NULL){
 		printf("No existe ese comando en background\n");
-		return 0;
+		return 1;
 	}
 	printf("%s\n",lineasbg[N]);
 	int j,status;
