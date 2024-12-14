@@ -394,7 +394,6 @@ int execute_bg(int N){
 	}
 	printf("[%d]- %s\n",N + 1,lineasbg[N]);
 	int j,status;
-	pid_t pgid;
 	if (est[N] == 1){//Si el proceso estaba pausado
 		for(j = 0; j < ncom[N]; j++){
 			if (rel[N][j] != -1){
@@ -434,7 +433,6 @@ int execute_fg(int N){
 	}
 	printf("%s\n",lineasbg[N]);
 	int j,status;
-	pid_t pgid;
 	hijosFG = (pid_t *)malloc((ncom[N] + 1) * sizeof(pid_t));
 	if (hijosFG == NULL){
 		perror("Error al reservar memoria");
