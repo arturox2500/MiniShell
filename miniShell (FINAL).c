@@ -416,9 +416,6 @@ int execute_bg(int N){
 		}
 	}
 	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el último proceso
-		for(j = 0; j < ncom[N]; j++){
-			rel[N][j] = -1;
-		}
 		free(rel[N]);
 		lineasbg[N] = NULL;
 		ncom[N] = 0;
