@@ -396,7 +396,6 @@ void ejecutar(tline *line){
 		}
 		lineasbg[orden] = NULL;
 	} else{//background
-		printf("[%d] %d\n",orden + 1,hijosActual[line->ncommands - 1]);
 		ncom[orden] = line->ncommands;
 		k = 0;
 		rel[orden] = (int *)malloc(line->ncommands * sizeof(int));
@@ -419,6 +418,8 @@ void ejecutar(tline *line){
 									}
 								}
 							}
+						}
+						for (k = 0; k<line->ncommands; k++){
 							if (rel[orden][k] != 0){
 								hijosST[rel[orden][k]] = 0;
 							}
@@ -447,6 +448,7 @@ void ejecutar(tline *line){
 				return;
 			}
 		}
+		printf("[%d] %d\n",orden + 1,hijosActual[line->ncommands - 1]);//Se pone después por si no hay espacio
 		orden++;
 		while(lineasbg[orden] != NULL){
 			orden++;//Guarda el siguiente valor al q acceder
@@ -495,8 +497,9 @@ int execute_bg(int N){
 				perror("Error al terminar el hijo");
 				return 1;
 			}
-			if (result == hijosST[rel[N][j]]){//Cuando ha terminado
+			if (result == hijosST[rel[N][j]] && j != ncom[N] - 1){//Cuando ha terminado y no es el último comando
 				hijosST[rel[N][j]] = 0;
+				rel[N][j] = -1;
 			}
 		}
 	}
@@ -556,7 +559,6 @@ int execute_fg(int N){
 				}
 				return 1;
 			}
-			hijosST[rel[N][j]] = 0;
 		}
 	}
 	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el último proceso
@@ -680,6 +682,8 @@ void manejador_sigtstp(int sig) {
 									}
 								}
 							}
+						}
+						for (k = 0; k<procs; k++){
 							if (rel[orden][k] != 0){
 								hijosST[rel[orden][k]] = 0;
 							}
