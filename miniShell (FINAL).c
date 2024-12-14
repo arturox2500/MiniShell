@@ -219,7 +219,7 @@ int main(int argc, char * argv[]) {
 			    			execute_fg(N);
 			    		}
 			    	} else {//no se encontro el mandato
-			    		printf("No se encontro el comando\n");
+			    		printf("%d: No se encuentra el mandato\n",aux);
 			    	}
 				if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
 					execute_exit();
@@ -602,11 +602,11 @@ void print_dir() {
 int redirect_stdin(char *input_file) {
     	FILE *file = fopen(input_file, "r");  
     	if (!file) {
-        	fprintf(stderr, "Falló lectura de fichero: %s\n", strerror(errno));
+        	fprintf(stderr, "%d: Error. %s\n", input_file, strerror(errno));
         	return 1;
     	}
     	if (dup2(fileno(file), STDIN_FILENO) == -1) {// Redirigir STDIN a este fichero
-        	fprintf(stderr, "Error al redirigir stdin: %s\n", strerror(errno));
+        	fprintf(stderr, "%d: Error. %s\n", input_file, strerror(errno));
         	fclose(file);
         	return 1;
     	}
@@ -617,11 +617,11 @@ int redirect_stdin(char *input_file) {
 int redirect_stdout(char *output_file) {
     	FILE *file = fopen(output_file, "w"); 
     	if (!file) {
-		fprintf(stderr, "Falló escritura a fichero %s: %s\n", output_file, strerror(errno));
+		fprintf(stderr, "%d: Error. %s\n", output_file, strerror(errno));
 		return 1;
     	}
     	if (dup2(fileno(file), STDOUT_FILENO) == -1) { // Redirigir STDOUT a este fichero
-		fprintf(stderr, "Error al redirigir stdout a %s: %s\n", output_file, strerror(errno));
+		fprintf(stderr, "%d: Error. %s\n", output_file, strerror(errno));
 		fclose(file);
 		return 1;
     	}
@@ -632,11 +632,11 @@ int redirect_stdout(char *output_file) {
 int redirect_stderr(char *error_file) {
     	FILE *file = fopen(error_file, "w");  
     	if (!file) {
-        	fprintf(stderr, "Falló escritura a fichero: %s\n", strerror(errno));
+        	fprintf(stderr, "%d: Error. %s\n", error_file, strerror(errno));
         	return 1;
     	}
     	if (dup2(fileno(file), STDERR_FILENO) == -1) {// Redirigir STDERR a este archivo
-        	fprintf(stderr, "Error al redirigir stderr a %s: %s\n", error_file, strerror(errno));
+        	fprintf(stderr, "%d: Error. %s\n", error_file, strerror(errno));
         	fclose(file);
         	return 1;
 	}
