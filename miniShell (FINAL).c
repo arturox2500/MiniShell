@@ -10,7 +10,7 @@
 
 int reestablecer(int original_stdin, int original_stdout, int original_stderr);
 void comprobarHijos();
-int ejecutar(tline *line);
+void ejecutar(tline *line);
 void liberarMemoria(int ** pipes, pid_t * hijosActual, int nc);
 int execute_bg(int N);
 int execute_fg(int N);
@@ -85,11 +85,7 @@ int main(int argc, char * argv[]) {
 				continue;
 			}
 			lineasbg[orden] = strdup(buf);
-			k = ejecutar(line);
-			if (k == 2){
-				execute_exit();
-				return 1;
-			}	
+			ejecutar(line);
 		} else {
 			aux = strtok(buf, " ");
 			if (aux != NULL) {
@@ -132,32 +128,12 @@ int main(int argc, char * argv[]) {
 			    		jobs = strtok(NULL, " ");
 			    		if (jobs != NULL){
 			    			printf("El comando cd solo necesita 1 parámetro\n");
-			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-			    				execute_exit();
-							return 1;
-						}
-			    			continue;
-			    		}		    		
-			    		execute_cd(path);
-			    	} else if(strcmp(aux, "exit") == 0){
-			    		while (nred > 0){
-			    			path = strtok(NULL, " ");
-			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
-			    				nred++;
-			    			}
-			    			nred--;
+			    		} else{		    		
+			    			execute_cd(path);
 			    		}
-			    		path = strtok(NULL, " ");
-			    		if (path != NULL){
-			    			printf("El comando exit no necesita parámetros\n");
-			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-			    				execute_exit();
-							return 1;
-						}
-			    			continue;
-			    		}
+			    	} else if(strcmp(aux, "exit") == 0){//Da igual que parámetros tenga
 			    		execute_exit();
-			    		break;//Se cierra
+				    	break;//Se cierra
 			    	} else if (strcmp(aux, "jobs") == 0){
 			    		while (nred > 0){
 			    			path = strtok(NULL, " ");
@@ -169,20 +145,16 @@ int main(int argc, char * argv[]) {
 			    		path = strtok(NULL, " ");
 			    		if (path != NULL){
 			    			printf("El comando jobs no necesita parámetros\n");
-			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-			    				execute_exit();
-							return 1;
-						}
-			    			continue;
-			    		}
-			    		for(k = 0; k < 21; k++){
-						if (lineasbg[k] != NULL){
-							if (est[k] == 0){
-								jobs = "+  Running";
-							} else if (est[k] == 1){	
-								jobs = "-  Stopped";
+			    		} else {
+				    		for(k = 0; k < 21; k++){
+							if (lineasbg[k] != NULL){
+								if (est[k] == 0){
+									jobs = "+  Running";
+								} else if (est[k] == 1){	
+									jobs = "-  Stopped";
+								}
+								printf("[%d]%s             %s\n",k + 1,jobs,lineasbg[k]);
 							}
-							printf("[%d]%s             %s\n",k + 1,jobs,lineasbg[k]);
 						}
 					}
 			    	} else if (strcmp(aux, "umask") == 0){
@@ -197,33 +169,18 @@ int main(int argc, char * argv[]) {
 			    		jobs = strtok(NULL, " ");
 			    		if (jobs != NULL){
 			    			printf("El comando umask solo necesita 1 parámetro\n");
-			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-			    				execute_exit();
-							return 1;
-						}
-			    			continue;
+			    		} else {
+			    			execute_umask(path);
 			    		}
-			    		execute_umask(path);
 			    	}else if (strcmp(aux, "bg") == 0){
 			    		path = strtok(NULL, " ");//Siguiente valor
 			    		N = atoi(path);
 					if (N <= 0){
 						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
-						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-							execute_exit();
-							return 1;
-						}
-						continue;
 					}
 					if (N > 21){
 						printf("No existe ese comando en background\n");
-						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-							execute_exit();
-							return 1;
-						}
-						continue;
 					}
-					N--;
 					while (nred > 0){
 			    			path = strtok(NULL, " ");
 			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
@@ -234,33 +191,19 @@ int main(int argc, char * argv[]) {
 					path = strtok(NULL, " ");
 					if (path != NULL){
 			    			printf("El comando bg solo necesita 1 parámetro\n");
-			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-			    				execute_exit();
-							return 1;
-						}
-			    			continue;
+			    		} else if (N > 0 && N <= 21){
+			    			N--;
+			    			execute_bg(N);
 			    		}
-			    		execute_bg(N);
 			    	} else if (strcmp(aux, "fg") == 0){
 			    		path = strtok(NULL, " ");//Siguiente valor
 			    		N = atoi(path);
 					if (N <= 0){
 						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
-						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-							execute_exit();
-							return 1;
-						}
-						continue;
 					}
 					if (N > 21){
 						printf("No existe ese comando en background\n");
-						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-							execute_exit();
-							return 1;
-						}
-						continue;
 					}
-					N--;
 					while (nred > 0){
 			    			path = strtok(NULL, " ");
 			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
@@ -271,20 +214,12 @@ int main(int argc, char * argv[]) {
 					path = strtok(NULL, " ");
 					if (path != NULL){
 			    			printf("El comando fg solo necesita 1 parámetro\n");
-			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-			    				execute_exit();
-							return 1;
-						}
-			    			continue;
+			    		} else if (N > 0 && N <= 21){
+			    			N--;
+			    			execute_fg(N);
 			    		}
-			    		execute_fg(N);
 			    	} else {//no se encontro el mandato
 			    		printf("No se encontro el comando\n");
-			    		if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
-			    			execute_exit();
-						return 1;
-					}
-			    		continue;
 			    	}
 				if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
 					execute_exit();
@@ -355,18 +290,18 @@ void comprobarHijos(){
 	}
 }
 
-int ejecutar(tline *line){
+void ejecutar(tline *line){
 	int i,j,k,status;
 	pid_t * hijosActual = (pid_t *)malloc(line->ncommands * sizeof(pid_t));
 	if (hijosActual == NULL){
 		perror("Error al reservar memoria");
-		return 1;
+		return;
 	}
 	hijosFG = (pid_t *)malloc((line->ncommands + 1) * sizeof(pid_t));
 	if (hijosFG == NULL){
 		perror("Error al reservar memoria");
 		free(hijosActual);
-		return 1;
+		return;
 	}
 	hijosFG[line->ncommands] = 0;
 	int ** pipes = (int **)malloc((line->ncommands - 1) * sizeof(int *));
@@ -374,14 +309,14 @@ int ejecutar(tline *line){
 		perror("Error al reservar memoria");
 		free(hijosActual);
 		free(hijosFG);
-		return 1;
+		return;
 	}
 	for(j = 0; j < line->ncommands - 1; j++){
 		pipes[j] = (int *)malloc(2 * sizeof(int));
 		if (pipes[j] == NULL){
 			perror("Error al reservar memoria");
 			liberarMemoria(pipes, hijosActual, j);
-			return 1;
+			return;
 		}
 		pipe(pipes[j]);
 	}
@@ -456,7 +391,7 @@ int ejecutar(tline *line){
 				perror("Error al terminar el hijo");
 				liberarMemoria(pipes, hijosActual, line->ncommands);
 				lineasbg[orden] = NULL;
-				return 1;
+				return;
 			}
 		}
 		lineasbg[orden] = NULL;
@@ -468,7 +403,7 @@ int ejecutar(tline *line){
 		if (rel[orden] == NULL){
 			perror("Error al reservar memoria");
 			liberarMemoria(pipes, hijosActual, line->ncommands);
-			return 1;
+			return;
 		}
 		for (j = 0; j < line->ncommands; j++){
 			result = waitpid(hijosActual[j], &status, WNOHANG);
@@ -481,7 +416,9 @@ int ejecutar(tline *line){
 								if (kill(-hijosFG[j], 0) == 0){
 									if (kill(-hijosFG[j], SIGKILL) != 0){
 										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
-										return 2;
+										liberarMemoria(pipes, hijosActual, line->ncommands);
+										free(rel[orden]);
+										exit(0);//Se cierra porque no se puede contemplar
 									}
 								}
 							}
@@ -495,7 +432,7 @@ int ejecutar(tline *line){
 						free(rel[orden]);
 						lineasbg[orden] = NULL;
 						est[orden] = 0;
-						return 1;
+						return;
 					}
 					k++;
 				}
@@ -512,7 +449,7 @@ int ejecutar(tline *line){
 				lineasbg[orden] = NULL;
 				est[orden] = 0;
 				liberarMemoria(pipes, hijosActual, line->ncommands);
-				return 1;
+				return;
 			}
 		}
 		orden++;
@@ -521,7 +458,7 @@ int ejecutar(tline *line){
 		}
 	}
 	liberarMemoria(pipes, hijosActual, line->ncommands);
-	return 0;
+	return;
 }
 
 void liberarMemoria(int ** pipes, pid_t * hijosActual, int nc){
@@ -745,6 +682,12 @@ void manejador_sigtstp(int sig) {
 								if (kill(-hijosFG[j], 0) == 0){
 									if (kill(-hijosFG[j], SIGKILL) != 0){
 										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
+										if (hijosFG != NULL){
+											free(hijosFG);
+											hijosFG = NULL;
+										}
+										free(rel[orden]);
+										exit(0);//Se cierra porque no se puede contemplar
 									}
 								}
 							}
