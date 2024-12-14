@@ -39,7 +39,7 @@ int main(int argc, char * argv[]) {
 	}
 	char buf[1024];
 	char *path, *aux, *jobs;
-	int j,k,N,original_stdin,original_stdout,original_stderr;
+	int k,N,original_stdin,original_stdout,original_stderr;
 	tline * line;
 	lineasbg[0] = NULL;
     	signal(SIGINT, manejador_sigint);
