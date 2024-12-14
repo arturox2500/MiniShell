@@ -602,11 +602,11 @@ void print_dir() {
 int redirect_stdin(char *input_file) {
     	FILE *file = fopen(input_file, "r");  
     	if (!file) {
-        	fprintf(stderr, "%d: Error. %s\n", input_file, strerror(errno));
+        	fprintf(stderr, "%s: Error. %s\n", input_file, strerror(errno));
         	return 1;
     	}
     	if (dup2(fileno(file), STDIN_FILENO) == -1) {// Redirigir STDIN a este fichero
-        	fprintf(stderr, "%d: Error. %s\n", input_file, strerror(errno));
+        	fprintf(stderr, "%s: Error. %s\n", input_file, strerror(errno));
         	fclose(file);
         	return 1;
     	}
@@ -617,11 +617,11 @@ int redirect_stdin(char *input_file) {
 int redirect_stdout(char *output_file) {
     	FILE *file = fopen(output_file, "w"); 
     	if (!file) {
-		fprintf(stderr, "%d: Error. %s\n", output_file, strerror(errno));
+		fprintf(stderr, "%s: Error. %s\n", output_file, strerror(errno));
 		return 1;
     	}
     	if (dup2(fileno(file), STDOUT_FILENO) == -1) { // Redirigir STDOUT a este fichero
-		fprintf(stderr, "%d: Error. %s\n", output_file, strerror(errno));
+		fprintf(stderr, "%s: Error. %s\n", output_file, strerror(errno));
 		fclose(file);
 		return 1;
     	}
@@ -632,11 +632,11 @@ int redirect_stdout(char *output_file) {
 int redirect_stderr(char *error_file) {
     	FILE *file = fopen(error_file, "w");  
     	if (!file) {
-        	fprintf(stderr, "%d: Error. %s\n", error_file, strerror(errno));
+        	fprintf(stderr, "%s: Error. %s\n", error_file, strerror(errno));
         	return 1;
     	}
     	if (dup2(fileno(file), STDERR_FILENO) == -1) {// Redirigir STDERR a este archivo
-        	fprintf(stderr, "%d: Error. %s\n", error_file, strerror(errno));
+        	fprintf(stderr, "%s: Error. %s\n", error_file, strerror(errno));
         	fclose(file);
         	return 1;
 	}
