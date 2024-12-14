@@ -416,10 +416,6 @@ void ejecutar(tline *line){
 								if (kill(-hijosFG[j], 0) == 0){
 									if (kill(-hijosFG[j], SIGKILL) != 0){
 										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
-										liberarMemoria(pipes, hijosActual, line->ncommands);
-										free(rel[orden]);
-										execute_exit();
-										exit(0);//Se cierra porque no se puede contemplar
 									}
 								}
 							}
@@ -681,13 +677,6 @@ void manejador_sigtstp(int sig) {
 								if (kill(-hijosFG[j], 0) == 0){
 									if (kill(-hijosFG[j], SIGKILL) != 0){
 										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
-										if (hijosFG != NULL){
-											free(hijosFG);
-											hijosFG = NULL;
-										}
-										free(rel[orden]);
-										execute_exit();
-										exit(0);//Se cierra porque no se puede contemplar
 									}
 								}
 							}
