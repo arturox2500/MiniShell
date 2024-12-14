@@ -40,12 +40,13 @@ int main(int argc, char * argv[]) {
 	}
 	char buf[1024];
 	char *path, *aux, *jobs;
-	int k,N,original_stdin,original_stdout,original_stderr;
+	int nred,k,N,original_stdin,original_stdout,original_stderr;
 	tline * line;
 	lineasbg[0] = NULL;
     	signal(SIGINT, manejador_sigint);
     	signal(SIGTSTP, manejador_sigtstp);
 	while (1) {
+		nred = 0;
 		print_dir();
 		printf(" msh> ");
 		if (fgets(buf, 1024, stdin) == NULL){
@@ -83,7 +84,10 @@ int main(int argc, char * argv[]) {
 				continue;
 			}
 			lineasbg[orden] = strdup(buf);
-			ejecutar(line);	
+			k = ejecutar(line);
+			if (k == 2){
+				return 1;
+			}	
 		} else {
 			aux = strtok(buf, " ");
 			if (aux != NULL) {
@@ -96,12 +100,15 @@ int main(int argc, char * argv[]) {
 					continue;
 				}
 				if (line->redirect_input != NULL){
+					nred++;
 					k = redirect_stdin(line->redirect_input);
 				}
 				if (line->redirect_output != NULL){
+					nred++;
 					k = redirect_stdout(line->redirect_output);
 				}
 				if (line->redirect_error != NULL){
+					nred++;
 					k = redirect_stderr(line->redirect_error);
 				}
 				if (k != 0){//Si falla la lectura o escritura de ficheros
@@ -112,6 +119,13 @@ int main(int argc, char * argv[]) {
 				}
 				if (strcmp(aux, "cd") == 0){
 			    		path = strtok(NULL, " ");
+			    		while (nred > 0){
+			    			jobs = strtok(NULL, " ");
+			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, "&>") == 0){
+			    				nred++;
+			    			}
+			    			nred--;
+			    		}
 			    		jobs = strtok(NULL, " ");
 			    		if (jobs != NULL){
 			    			printf("El comando cd solo necesita 1 parámetro\n");
@@ -122,6 +136,13 @@ int main(int argc, char * argv[]) {
 			    		}		    		
 			    		execute_cd(path);
 			    	} else if(strcmp(aux, "exit") == 0){
+			    		while (nred > 0){
+			    			path = strtok(NULL, " ");
+			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
+			    				nred++;
+			    			}
+			    			nred--;
+			    		}
 			    		path = strtok(NULL, " ");
 			    		if (path != NULL){
 			    			printf("El comando exit no necesita parámetros\n");
@@ -133,6 +154,13 @@ int main(int argc, char * argv[]) {
 			    		execute_exit();
 			    		break;//Se cierra
 			    	} else if (strcmp(aux, "jobs") == 0){
+			    		while (nred > 0){
+			    			path = strtok(NULL, " ");
+			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
+			    				nred++;
+			    			}
+			    			nred--;
+			    		}
 			    		path = strtok(NULL, " ");
 			    		if (path != NULL){
 			    			printf("El comando jobs no necesita parámetros\n");
@@ -153,6 +181,13 @@ int main(int argc, char * argv[]) {
 					}
 			    	} else if (strcmp(aux, "umask") == 0){
 			    		path = strtok(NULL, " ");
+			    		while (nred > 0){
+			    			jobs = strtok(NULL, " ");
+			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, "&>") == 0){
+			    				nred++;
+			    			}
+			    			nred--;
+			    		}
 			    		jobs = strtok(NULL, " ");
 			    		if (jobs != NULL){
 			    			printf("El comando umask solo necesita 1 parámetro\n");
@@ -162,7 +197,6 @@ int main(int argc, char * argv[]) {
 			    			continue;
 			    		}
 			    		execute_umask(path);
-			    		
 			    	}else if (strcmp(aux, "bg") == 0){
 			    		path = strtok(NULL, " ");//Siguiente valor
 			    		N = atoi(path);
@@ -181,6 +215,13 @@ int main(int argc, char * argv[]) {
 						continue;
 					}
 					N--;
+					while (nred > 0){
+			    			path = strtok(NULL, " ");
+			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
+			    				nred++;
+			    			}
+			    			nred--;
+			    		}
 					path = strtok(NULL, " ");
 					if (path != NULL){
 			    			printf("El comando bg solo necesita 1 parámetro\n");
@@ -208,6 +249,13 @@ int main(int argc, char * argv[]) {
 						continue;
 					}
 					N--;
+					while (nred > 0){
+			    			path = strtok(NULL, " ");
+			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, "&>") == 0){
+			    				nred++;
+			    			}
+			    			nred--;
+			    		}
 					path = strtok(NULL, " ");
 					if (path != NULL){
 			    			printf("El comando fg solo necesita 1 parámetro\n");
@@ -413,6 +461,16 @@ int ejecutar(tline *line){
 				while (hijosST[k] != 0){
 					if (k + 1 > 20){
 						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales");
+						for (j = 0; j<line->ncommands; j++){
+							if (hijosFG[j] != 0){
+								if (kill(-hijosFG[j], 0) == 0){
+									if (kill(-hijosFG[j], SIGKILL) != 0){
+										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
+										return 2;
+									}
+								}
+							}
+						}
 						liberarMemoria(pipes, hijosActual, line->ncommands);
 						free(rel[orden]);
 						lineasbg[orden] = NULL;
@@ -655,6 +713,26 @@ void manejador_sigtstp(int sig) {
 			for (j = 0; j < procs; j++){
 				k = 0;//ahora pasar a los otros arrays		
 				while (hijosST[k] != 0){
+					if (k + 1 > 20){
+						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales\n");
+						for (j = 0; j<procs; j++){
+							if (hijosFG[j] != 0){
+								if (kill(-hijosFG[j], 0) == 0){
+									if (kill(-hijosFG[j], SIGKILL) != 0){
+										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
+									}
+								}
+							}
+						}
+						if (hijosFG != NULL){
+							free(hijosFG);
+							hijosFG = NULL;
+						}
+						free(rel[orden]);
+						lineasbg[orden] = NULL;
+						est[orden] = 0;
+						return;
+					}
 					k++;
 				}
 				hijosST[k] = (pid_t)hijosFG[j];
