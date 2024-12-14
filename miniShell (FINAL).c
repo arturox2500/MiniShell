@@ -418,12 +418,11 @@ void ejecutar(tline *line){
 										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
 										liberarMemoria(pipes, hijosActual, line->ncommands);
 										free(rel[orden]);
+										execute_exit();
 										exit(0);//Se cierra porque no se puede contemplar
 									}
 								}
 							}
-						}
-						for (k = 0; k < line->ncommands; k++){
 							if (rel[orden][k] != 0){
 								hijosST[rel[orden][k]] = 0;
 							}
@@ -687,12 +686,11 @@ void manejador_sigtstp(int sig) {
 											hijosFG = NULL;
 										}
 										free(rel[orden]);
+										execute_exit();
 										exit(0);//Se cierra porque no se puede contemplar
 									}
 								}
 							}
-						}
-						for (k = 0; k < procs; k++){
 							if (rel[orden][k] != 0){
 								hijosST[rel[orden][k]] = 0;
 							}
