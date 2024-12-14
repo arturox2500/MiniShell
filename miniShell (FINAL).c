@@ -50,7 +50,7 @@ int main(int argc, char * argv[]) {
 		if (fgets(buf, 1024, stdin) == NULL){
 			if (feof(stdin)){
 				printf("\n");
-				break;
+				return 1;
 			}
 			if (errno == EINTR) {// Si el error es una interrupción por señal, se ignora
                 		continue;
@@ -92,7 +92,7 @@ int main(int argc, char * argv[]) {
 				original_stderr = dup(STDERR_FILENO);
 				if (original_stdin == -1 || original_stdout == -1 || original_stderr == -1){
 					perror("Error al guardar los descriptores originales");
-					break;
+					return 1;
 				}
 				if (line->redirect_input != NULL){
 					k = redirect_stdin(line->redirect_input);
@@ -159,15 +159,15 @@ int main(int argc, char * argv[]) {
 			    	}
 			    	if (dup2(original_stdout, STDOUT_FILENO) == -1){
 			    		fprintf(stderr, "Error al redirigir stdout al original: %s\n",strerror(errno));
-					break;
+					return 1;
 				}
 			    	if (dup2(original_stdin, STDIN_FILENO) == -1){
 			    		fprintf(stderr, "Error al redirigir stdin al original: %s\n", strerror(errno));
-					break;
+					return 1;
 				}
 			    	if (dup2(original_stderr, STDERR_FILENO) == -1){
 			    		fprintf(stderr, "Error al redirigir stderr al original: %s\n", strerror(errno));
-			    		break;
+			    		return 1;
 			    	}
 				close(original_stdout);
 				close(original_stdin);
