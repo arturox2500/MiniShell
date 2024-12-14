@@ -8,22 +8,22 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-int proceso_en_fg();
-void manejador_sigint(int sig);
-void manejador_sigtstp(int sig);
 void comprobarHijos();
 int ejecutar(tline *line);
 void liberarMemoria(int ** pipes, pid_t * hijosActual, int nc);
 int execute_bg(int N);
 int execute_fg(int N);
 void execute_cd(char *path);
-void execute_umask(char *mask);
-int execute_exit();
 void print_dir();
 int redirect_stdin(char *input_file);
 int redirect_stdout(char *output_file);
 int redirect_stderr(char *error_file);
+void manejador_sigint(int sig);
 int check(pid_t p);
+void manejador_sigtstp(int sig);
+void execute_umask(char *mask);
+int execute_exit();
+int proceso_en_fg();
 pid_t hijosST[20] = {0};
 pid_t * hijosFG;
 char * lineasbg[21] = {" "};
