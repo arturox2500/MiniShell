@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+int reestablecer(int original_stdin, int original_stdout, int original_stderr);
 void comprobarHijos();
 int ejecutar(tline *line);
 void liberarMemoria(int ** pipes, pid_t * hijosActual, int nc);
@@ -104,15 +105,42 @@ int main(int argc, char * argv[]) {
 					k = redirect_stderr(line->redirect_error);
 				}
 				if (k != 0){//Si falla la lectura o escritura de ficheros
+					if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+						return 1;
+					}
 					continue;//En la función lo notifica al usuario
 				}
 				if (strcmp(aux, "cd") == 0){
-			    		path = strtok(NULL, " ");		    		
+			    		path = strtok(NULL, " ");
+			    		jobs = strtok(NULL, " ");
+			    		if (jobs != NULL){
+			    			printf("El comando cd solo necesita 1 parámetro\n");
+			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
+			    			continue;
+			    		}		    		
 			    		execute_cd(path);
 			    	} else if(strcmp(aux, "exit") == 0){
+			    		path = strtok(NULL, " ");
+			    		if (path != NULL){
+			    			printf("El comando exit no necesita parámetros\n");
+			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
+			    			continue;
+			    		}
 			    		execute_exit();
 			    		break;//Se cierra
 			    	} else if (strcmp(aux, "jobs") == 0){
+			    		path = strtok(NULL, " ");
+			    		if (path != NULL){
+			    			printf("El comando jobs no necesita parámetros\n");
+			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
+			    			continue;
+			    		}
 			    		for(k = 0; k < 21; k++){
 						if (lineasbg[k] != NULL){
 							if (est[k] == 0){
@@ -125,6 +153,14 @@ int main(int argc, char * argv[]) {
 					}
 			    	} else if (strcmp(aux, "umask") == 0){
 			    		path = strtok(NULL, " ");
+			    		jobs = strtok(NULL, " ");
+			    		if (jobs != NULL){
+			    			printf("El comando umask solo necesita 1 parámetro\n");
+			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
+			    			continue;
+			    		}
 			    		execute_umask(path);
 			    		
 			    	}else if (strcmp(aux, "bg") == 0){
@@ -132,49 +168,87 @@ int main(int argc, char * argv[]) {
 			    		N = atoi(path);
 					if (N <= 0){
 						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
+						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
 						continue;
 					}
 					if (N > 21){
 						printf("No existe ese comando en background\n");
+						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
 						continue;
 					}
 					N--;
+					path = strtok(NULL, " ");
+					if (path != NULL){
+			    			printf("El comando bg solo necesita 1 parámetro\n");
+			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
+			    			continue;
+			    		}
 			    		execute_bg(N);
 			    	} else if (strcmp(aux, "fg") == 0){
 			    		path = strtok(NULL, " ");//Siguiente valor
 			    		N = atoi(path);
 					if (N <= 0){
 						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
+						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
 						continue;
 					}
 					if (N > 21){
 						printf("No existe ese comando en background\n");
+						if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
 						continue;
 					}
 					N--;
+					path = strtok(NULL, " ");
+					if (path != NULL){
+			    			printf("El comando fg solo necesita 1 parámetro\n");
+			    			if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+							return 1;
+						}
+			    			continue;
+			    		}
 			    		execute_fg(N);
 			    	} else {//no se encontro el mandato
 			    		printf("No se encontro el comando\n");
+			    		if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
+						return 1;
+					}
 			    		continue;
 			    	}
-			    	if (dup2(original_stdout, STDOUT_FILENO) == -1){
-			    		fprintf(stderr, "Error al redirigir stdout al original: %s\n",strerror(errno));
+				if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
 					return 1;
 				}
-			    	if (dup2(original_stdin, STDIN_FILENO) == -1){
-			    		fprintf(stderr, "Error al redirigir stdin al original: %s\n", strerror(errno));
-					return 1;
-				}
-			    	if (dup2(original_stderr, STDERR_FILENO) == -1){
-			    		fprintf(stderr, "Error al redirigir stderr al original: %s\n", strerror(errno));
-			    		return 1;
-			    	}
-				close(original_stdout);
-				close(original_stdin);
-				close(original_stderr);
 			}
 		}
 	}
+	return 0;
+}
+
+int reestablecer(int original_stdin, int original_stdout, int original_stderr){
+	if (dup2(original_stdout, STDOUT_FILENO) == -1){
+   		fprintf(stderr, "Error al redirigir stdout al original: %s\n",strerror(errno));
+		return 1;
+	}
+    	if (dup2(original_stdin, STDIN_FILENO) == -1){
+    		fprintf(stderr, "Error al redirigir stdin al original: %s\n", strerror(errno));
+		return 1;
+	}
+    	if (dup2(original_stderr, STDERR_FILENO) == -1){
+    		fprintf(stderr, "Error al redirigir stderr al original: %s\n", strerror(errno));
+    		return 1;
+	}
+	close(original_stdout);
+	close(original_stdin);
+	close(original_stderr);
 	return 0;
 }
 
@@ -231,7 +305,7 @@ int ejecutar(tline *line){
 		free(hijosActual);
 		return 1;
 	}
-	hijosFG[nc] = 0;
+	hijosFG[line->ncommands] = 0;
 	int ** pipes = (int **)malloc((line->ncommands - 1) * sizeof(int *));
 	if (pipes == NULL){
 		perror("Error al reservar memoria");
@@ -248,7 +322,7 @@ int ejecutar(tline *line){
 		}
 		pipe(pipes[j]);
 	}
-	pid_t pid;
+	pid_t pid, result;
 	for (i = 0; i < line->ncommands; i++){
 		pid = fork();
 		if (pid < 0){ //Error en el fork
@@ -273,22 +347,22 @@ int ejecutar(tline *line){
 				}
 				if (line->ncommands > 1){
 					if (dup2(pipes[i][1],STDOUT_FILENO) == -1){
-						fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
+						fprintf(stderr,"Error al modificar el descriptor de fichero del hijo %d\n", i);
 						exit(-1);
 					}
 				}
 			} else if (i == line->ncommands - 1){//Último Hijo a ejecutar
 				if (dup2(pipes[i - 1][0],STDIN_FILENO) == -1){
-					fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
+					fprintf(stderr,"Error al modificar el descriptor de fichero del hijo %d\n", i);
 					exit(-1);
 				}
 			} else { //Los hijos del medio
 				if (dup2(pipes[i][1],STDOUT_FILENO) == -1){
-					fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
+					fprintf(stderr,"Error al modificar el descriptor de fichero del hijo %d\n", i);
 					exit(-1);
 				}
 				if (dup2(pipes[i - 1][0],STDIN_FILENO) == -1){
-					fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
+					fprintf(stderr,"Error al modificar el descriptor de fichero del hijo %d\n", i);
 					exit(-1);
 				}
 			}
@@ -324,23 +398,22 @@ int ejecutar(tline *line){
 		}
 		lineasbg[orden] = NULL;
 	} else{//background
-		printf("[%d] %d\n",orden + 1,hijosActual[lineasbg[orden] = NULL; - 1]);
-		ncom[orden] = lineasbg[orden] = NULL;;
-		pid_t result;
+		printf("[%d] %d\n",orden + 1,hijosActual[line->ncommands - 1]);
+		ncom[orden] = line->ncommands;
 		k = 0;
-		rel[orden] = (int *)malloc(lineasbg[orden] = NULL; * sizeof(int));
+		rel[orden] = (int *)malloc(line->ncommands * sizeof(int));
 		if (rel[orden] == NULL){
 			perror("Error al reservar memoria");
-			liberarMemoria(pipes, hijosActual, lineasbg[orden] = NULL;);
+			liberarMemoria(pipes, hijosActual, line->ncommands);
 			return 1;
 		}
-		for (j = 0; j < lineasbg[orden] = NULL;; j++){
+		for (j = 0; j < line->ncommands; j++){
 			result = waitpid(hijosActual[j], &status, WNOHANG);
 			if (result == 0){
 				while (hijosST[k] != 0){
 					if (k + 1 > 20){
 						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales");
-						liberarMemoria(pipes, hijosActual, lineasbg[orden] = NULL;);
+						liberarMemoria(pipes, hijosActual, line->ncommands);
 						free(rel[orden]);
 						lineasbg[orden] = NULL;
 						est[orden] = 0;
@@ -350,16 +423,16 @@ int ejecutar(tline *line){
 				}
 				hijosST[k] = (pid_t)hijosActual[j];
 				rel[orden][j] = k;
-				if (j == lineasbg[orden] = NULL; - 1){//Si es el último comando
+				if (j == line->ncommands - 1){//Si es el último comando
 					est[orden] = 0;//Estado = Running
 				}
 			}
-			if (status != 0){
+			if (status != 0 && result != hijosActual[j]){
 				perror("Error al terminar el hijo");
 				free(rel[orden]);
 				lineasbg[orden] = NULL;
 				est[orden] = 0;
-				liberarMemoria(pipes, hijosActual, lineasbg[orden] = NULL;);
+				liberarMemoria(pipes, hijosActual, line->ncommands);
 				return 1;
 			}
 		}
@@ -368,7 +441,7 @@ int ejecutar(tline *line){
 			orden++;//Guarda el siguiente valor al q acceder
 		}
 	}
-	liberarMemoria(pipes, hijosActual, lineasbg[orden] = NULL;);
+	liberarMemoria(pipes, hijosActual, line->ncommands);
 	return 0;
 }
 
@@ -392,6 +465,7 @@ int execute_bg(int N){
 	}
 	printf("[%d]- %s\n",N + 1,lineasbg[N]);
 	int j,status;
+	pid_t result;
 	if (est[N] == 1){//Si el proceso estaba pausado
 		for(j = 0; j < ncom[N]; j++){
 			if (rel[N][j] != -1){
@@ -405,8 +479,8 @@ int execute_bg(int N){
 	}
 	for(j = 0; j < ncom[N]; j++){
 		if (rel[N][j] != -1){
-			waitpid(hijosST[rel[N][j]], &status, WNOHANG);//Espera a q termine ese hijo
-			if (status != 0){
+			result = waitpid(hijosST[rel[N][j]], &status, WNOHANG);//No espera a q termine ese hijo
+			if (status != 0 && result != hijosST[rel[N][j]]){//Si se produce algún error
 				perror("Error al terminar el hijo");
 				return 1;
 			}	
