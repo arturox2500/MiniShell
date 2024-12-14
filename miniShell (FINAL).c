@@ -220,29 +220,27 @@ void comprobarHijos(){
 
 int ejecutar(tline *line){
 	int i,j,k,status;
-	int nc = line->ncommands;
-	tcommand * coms = line->commands;
 	FILE *file;
-	pid_t * hijosActual = (pid_t *)malloc(nc * sizeof(pid_t));
+	pid_t * hijosActual = (pid_t *)malloc(line->ncommands * sizeof(pid_t));
 	if (hijosActual == NULL){
 		perror("Error al reservar memoria");
 		return 1;
 	}
-	hijosFG = (pid_t *)malloc((nc + 1) * sizeof(pid_t));
+	hijosFG = (pid_t *)malloc((line->ncommands + 1) * sizeof(pid_t));
 	if (hijosFG == NULL){
 		perror("Error al reservar memoria");
 		free(hijosActual);
 		return 1;
 	}
 	hijosFG[nc] = 0;
-	int ** pipes = (int **)malloc((nc - 1) * sizeof(int *));
+	int ** pipes = (int **)malloc((line->ncommands - 1) * sizeof(int *));
 	if (pipes == NULL){
 		perror("Error al reservar memoria");
 		free(hijosActual);
 		free(hijosFG);
 		return 1;
 	}
-	for(j = 0; j < nc - 1; j++){
+	for(j = 0; j < line->ncommands - 1; j++){
 		pipes[j] = (int *)malloc(2 * sizeof(int));
 		if (pipes[j] == NULL){
 			perror("Error al reservar memoria");
@@ -252,18 +250,18 @@ int ejecutar(tline *line){
 		pipe(pipes[j]);
 	}
 	pid_t pid;
-	for (i = 0; i < nc; i++){
+	for (i = 0; i < line->ncommands; i++){
 		pid = fork();
 		if (pid < 0){ //Error en el fork
 			fprintf(stderr, "Falló el fort()\n%s\n", strerror(errno));
 			exit(-1);
 		} else if (pid == 0){ //Código hijo i
-			if (i == nc - 1 && line->redirect_output != NULL){
+			if (i == line->ncommands - 1 && line->redirect_output != NULL){
 				if (redirect_stdout(line->redirect_output) == 1){
 					exit(-1);
 				}
 			}
-			if (i == nc - 1 && line->redirect_error != NULL){
+			if (i == line->ncommands - 1 && line->redirect_error != NULL){
 				if (redirect_stderr(line->redirect_error) == 1){
 					exit(-1);
 				}
@@ -274,13 +272,13 @@ int ejecutar(tline *line){
 						exit(-1);
 					}
 				}
-				if (nc > 1){
+				if (line->ncommands > 1){
 					if (dup2(pipes[i][1],STDOUT_FILENO) == -1){
 						fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
 						exit(-1);
 					}
 				}
-			} else if (i == nc - 1){//Último Hijo a ejecutar
+			} else if (i == line->ncommands - 1){//Último Hijo a ejecutar
 				if (dup2(pipes[i - 1][0],STDIN_FILENO) == -1){
 					fprintf(stderr,"Error al modificar el descriptor de fichero del hijos %d\n", nc);
 					exit(-1);
@@ -295,13 +293,13 @@ int ejecutar(tline *line){
 					exit(-1);
 				}
 			}
-			for (j = i - 1; j < nc - 1;j++){
+			for (j = i - 1; j < line->ncommands - 1;j++){
 				if (j >= 0){
 					close(pipes[j][0]);
 					close(pipes[j][1]);
 				}
 			}
-			execvp(coms[i].filename,coms[i].argv);
+			execvp(line->commands[i].filename,line->commands[i].argv);
 			perror("Error en execvp");
     			exit(-1);
 		} else {
@@ -313,36 +311,37 @@ int ejecutar(tline *line){
 		}
 	}
 	if (line->background == 0){//no es background
-		for (j = 0; j < nc; j++){
+		for (j = 0; j < line->ncommands; j++){
 			hijosFG[j] = hijosActual[j];
 		}	
-		for (j = 0; j < nc; j++){
+		for (j = 0; j < line->ncommands; j++){
 			waitpid(hijosActual[j], &status, WUNTRACED);
 			if (status == -1){
 				perror("Error al terminar el hijo");
-				liberarMemoria(pipes, hijosActual, nc);
+				liberarMemoria(pipes, hijosActual, line->ncommands);
+				lineasbg[orden] = NULL;
 				return 1;
 			}
 		}
 		lineasbg[orden] = NULL;
 	} else{//background
-		printf("[%d] %d\n",orden + 1,hijosActual[nc - 1]);
-		ncom[orden] = nc;
+		printf("[%d] %d\n",orden + 1,hijosActual[lineasbg[orden] = NULL; - 1]);
+		ncom[orden] = lineasbg[orden] = NULL;;
 		pid_t result;
 		k = 0;
-		rel[orden] = (int *)malloc(nc * sizeof(int));
+		rel[orden] = (int *)malloc(lineasbg[orden] = NULL; * sizeof(int));
 		if (rel[orden] == NULL){
 			perror("Error al reservar memoria");
-			liberarMemoria(pipes, hijosActual, nc);
+			liberarMemoria(pipes, hijosActual, lineasbg[orden] = NULL;);
 			return 1;
 		}
-		for (j = 0; j < nc; j++){
+		for (j = 0; j < lineasbg[orden] = NULL;; j++){
 			result = waitpid(hijosActual[j], &status, WNOHANG);
 			if (result == 0){
 				while (hijosST[k] != 0){
 					if (k + 1 > 20){
 						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales");
-						liberarMemoria(pipes, hijosActual, nc);
+						liberarMemoria(pipes, hijosActual, lineasbg[orden] = NULL;);
 						free(rel[orden]);
 						lineasbg[orden] = NULL;
 						est[orden] = 0;
@@ -352,7 +351,7 @@ int ejecutar(tline *line){
 				}
 				hijosST[k] = (pid_t)hijosActual[j];
 				rel[orden][j] = k;
-				if (j == nc - 1){//Si es el último comando
+				if (j == lineasbg[orden] = NULL; - 1){//Si es el último comando
 					est[orden] = 0;//Estado = Running
 				}
 			}
@@ -361,7 +360,7 @@ int ejecutar(tline *line){
 				free(rel[orden]);
 				lineasbg[orden] = NULL;
 				est[orden] = 0;
-				liberarMemoria(pipes, hijosActual, nc);
+				liberarMemoria(pipes, hijosActual, lineasbg[orden] = NULL;);
 				return 1;
 			}
 		}
@@ -370,7 +369,7 @@ int ejecutar(tline *line){
 			orden++;//Guarda el siguiente valor al q acceder
 		}
 	}
-	liberarMemoria(pipes, hijosActual, nc);
+	liberarMemoria(pipes, hijosActual, lineasbg[orden] = NULL;);
 	return 0;
 }
 
