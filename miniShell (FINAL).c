@@ -40,13 +40,14 @@ int main(int argc, char * argv[]) {
 	}
 	char buf[1024];
 	char *path, *aux, *jobs;
-	int nred,k,N,original_stdin,original_stdout,original_stderr;
+	int nred,k,N,original_stdin,original_stdout,original_stderr, empty, run;
 	tline * line;
 	lineasbg[0] = NULL;
     	signal(SIGINT, manejador_sigint);
     	signal(SIGTSTP, manejador_sigtstp);
 	while (1) {
 		nred = 0;
+		empty = 0;
 		print_dir();
 		printf(" msh> ");
 		if (fgets(buf, 1024, stdin) == NULL){
@@ -172,9 +173,39 @@ int main(int argc, char * argv[]) {
 			    		} else {
 			    			execute_umask(path);
 			    		}
-			    	}else if (strcmp(aux, "bg") == 0){
+			    	}else if (strcmp(aux, "bg") == 0){			    		
 			    		path = strtok(NULL, " ");//Siguiente valor
-			    		N = atoi(path);
+			    		if (path == NULL){
+			    			N=0;
+			    			for (k = 0; k < 21; k++){
+			    				if (lineasbg[k] != NULL){
+			    					N = k+1;
+			    				}
+			    			}
+			    			
+			    			while (N > 0){
+			    				k = N - 1;
+			    				if (lineasbg[k] != NULL && est[k] == 1){
+			    					N--;
+			    					break;
+			    				}
+			    				N--;
+			    			}			    			
+			    			N++;
+			    			empty = 1;
+			    			
+			    			run = 1;
+			    			for (k = 0; k < 21; k++){
+			    				if (lineasbg[k] != NULL){
+			    					if (est[k]==1){
+			    						run = 0;
+			    					}
+			    				}
+			    			}
+			    			
+			    		} else {
+			    			N = atoi(path);
+			    		}
 					if (N <= 0 || N > 21){
 						nred = -2;
 					}
@@ -193,12 +224,27 @@ int main(int argc, char * argv[]) {
 			    			if (lineasbg[N] == NULL){
 			    				nred = -2;
 			    			} else {
-			    				execute_bg(N);
+			    				if (run == 0){
+			    					execute_bg(N);
+			    				}
+			    				else {
+			    					printf("bg: trabajos actualmente en background\n");
+			    				}
 			    			}
 			    		}
 			    	} else if (strcmp(aux, "fg") == 0){
 			    		path = strtok(NULL, " ");//Siguiente valor
-			    		N = atoi(path);
+			    		if (path == NULL){
+			    			N=0;
+			    			for (k = 0; k < 21; k++){
+			    				if (lineasbg[k] != NULL){
+			    					N=k+1;
+			    				}
+			    			}
+			    			empty = 1;
+			    		} else {
+			    			N = atoi(path);
+			    		}
 					if (N <= 0 || N > 21){
 						nred = -2;
 					}
@@ -229,8 +275,10 @@ int main(int argc, char * argv[]) {
 				}
 				if (nred == -1){//Se escribe después para tener los descriptores originales
 					printf("%s: Demasiados argumentos\n",aux);
-				} else if (nred == -2){
+				} else if (nred == -2 && empty != 1){
 					printf("%s: %s: no existe ese trabajo\n",aux,path);
+				} else if (empty ==1 && nred == -2) {
+					printf("%s: current: no existe ese trabajo\n",aux);
 				}
 			}
 		}
