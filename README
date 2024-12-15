@@ -1,1 +1,0 @@
-Cuando leas esto me vas a matar pero se me ocurrió una nueva idea para solucionar el fg, ya funcionan el bg, fg y control + Z cuando los comandos se ejecutan la primera vez en foreground pero no cuando se ejecuta la primera vez con & cuando sobrepasa las 20 posiciones. Mañana lo miro más en detalle
