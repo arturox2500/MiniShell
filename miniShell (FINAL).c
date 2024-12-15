@@ -63,7 +63,7 @@ int main(int argc, char * argv[]) {
 		}
 		line = tokenize(buf);
 		comprobarHijos();
-		if (orden > 21){//Para evitar sobrepasar el limite
+		if (orden >= 21){//Para evitar sobrepasar el limite
 			printf("No hay espacio para más procesos, espere que termine un proceso en background\n");
 			continue;
 		}
@@ -126,8 +126,8 @@ int main(int argc, char * argv[]) {
 			    			nred--;
 			    		}
 			    		jobs = strtok(NULL, " ");
-			    		if (jobs != NULL){
-			    			printf("El comando cd solo necesita 1 parámetro\n");
+			    		if (jobs != NULL){//Demasiados parámetros
+			    			nred = -1;
 			    		} else{		    		
 			    			execute_cd(path);
 			    		}
@@ -143,8 +143,8 @@ int main(int argc, char * argv[]) {
 			    			nred--;
 			    		}
 			    		path = strtok(NULL, " ");
-			    		if (path != NULL){
-			    			printf("El comando jobs no necesita parámetros\n");
+			    		if (path != NULL){//Demasiados parámetros
+			    			nred = -1;
 			    		} else {
 				    		for(k = 0; k < 21; k++){
 							if (lineasbg[k] != NULL){
@@ -167,56 +167,58 @@ int main(int argc, char * argv[]) {
 			    			nred--;
 			    		}
 			    		jobs = strtok(NULL, " ");
-			    		if (jobs != NULL){
-			    			printf("El comando umask solo necesita 1 parámetro\n");
+			    		if (jobs != NULL){//Demasiados parámetros
+			    			nred = -1;
 			    		} else {
 			    			execute_umask(path);
 			    		}
 			    	}else if (strcmp(aux, "bg") == 0){
 			    		path = strtok(NULL, " ");//Siguiente valor
 			    		N = atoi(path);
-					if (N <= 0){
-						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
-					}
-					if (N > 21){
-						printf("No existe ese comando en background\n");
+					if (N <= 0 || N > 21){
+						nred = -2;
 					}
 					while (nred > 0){
-			    			path = strtok(NULL, " ");
-			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, ">&") == 0){
+			    			jobs = strtok(NULL, " ");
+			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, ">&") == 0){
 			    				nred++;
 			    			}
 			    			nred--;
 			    		}
-					path = strtok(NULL, " ");
-					if (path != NULL){
-			    			printf("El comando bg solo necesita 1 parámetro\n");
+					jobs = strtok(NULL, " ");
+					if (jobs != NULL){//Demasiados parámetro
+			    			nred = -1;
 			    		} else if (N > 0 && N <= 21){
 			    			N--;
-			    			execute_bg(N);
+			    			if (lineasbg[N] == NULL){
+			    				nred = -2;
+			    			} else {
+			    				execute_bg(N);
+			    			}
 			    		}
 			    	} else if (strcmp(aux, "fg") == 0){
 			    		path = strtok(NULL, " ");//Siguiente valor
 			    		N = atoi(path);
-					if (N <= 0){
-						printf("El segundo parámetro debe ser numérico y mayor que 0\n");
-					}
-					if (N > 21){
-						printf("No existe ese comando en background\n");
+					if (N <= 0 || N > 21){
+						nred = -2;
 					}
 					while (nred > 0){
-			    			path = strtok(NULL, " ");
-			    			if (strcmp(path, ">") == 0 || strcmp(aux, "<") == 0 || strcmp(aux, ">&") == 0){
+			    			jobs = strtok(NULL, " ");
+			    			if (strcmp(jobs, ">") == 0 || strcmp(jobs, "<") == 0 || strcmp(jobs, ">&") == 0){
 			    				nred++;
 			    			}
 			    			nred--;
 			    		}
-					path = strtok(NULL, " ");
-					if (path != NULL){
-			    			printf("El comando fg solo necesita 1 parámetro\n");
+					jobs = strtok(NULL, " ");
+					if (jobs != NULL){//Demasiados parámetros
+			    			nred = -1;
 			    		} else if (N > 0 && N <= 21){
 			    			N--;
-			    			execute_fg(N);
+			    			if (lineasbg[N] == NULL){
+			    				nred = -2;
+			    			} else {
+			    				execute_fg(N);
+			    			}
 			    		}
 			    	} else {//no se encontro el mandato
 			    		printf("%s: No se encuentra el mandato\n",aux);
@@ -224,6 +226,11 @@ int main(int argc, char * argv[]) {
 				if (reestablecer(original_stdin,original_stdout,original_stderr) == 1){
 					execute_exit();
 					return 1;
+				}
+				if (nred == -1){//Se escribe después para tener los descriptores originales
+					printf("%s: Demasiados argumentos\n",aux);
+				} else if (nred == -2){
+					printf("%s: %s: no existe ese trabajo\n",aux,path);
 				}
 			}
 		}
@@ -338,6 +345,9 @@ void ejecutar(tline *line){
 				}
 			}
 			if (i == 0){ //1º Hijo a ejecutar
+				if (setpgid(0, 0) != 0){
+					exit(-1);
+				}
 				if (line->redirect_input != NULL){
 					if (redirect_stdin(line->redirect_input) == 1){
 						exit(-1);
@@ -350,11 +360,17 @@ void ejecutar(tline *line){
 					}
 				}
 			} else if (i == line->ncommands - 1){//Último Hijo a ejecutar
+				if (setpgid(0, pid) != 0){
+					exit(-1);
+				}
 				if (dup2(pipes[i - 1][0],STDIN_FILENO) == -1){
 					fprintf(stderr,"Error al modificar el descriptor de fichero del hijo %d\n", i);
 					exit(-1);
 				}
 			} else { //Los hijos del medio
+				if (setpgid(0, pid) != 0){
+					exit(-1);
+				}
 				if (dup2(pipes[i][1],STDOUT_FILENO) == -1){
 					fprintf(stderr,"Error al modificar el descriptor de fichero del hijo %d\n", i);
 					exit(-1);
@@ -374,6 +390,15 @@ void ejecutar(tline *line){
 			perror("Error en execvp");
     			exit(-1);
 		} else {
+			if (i == 0) {
+				if (setpgid(pid, pid) != 0){
+					return;
+				}
+			} else {
+				if (setpgid(pid, hijosActual[0]) != 0){
+					return;
+				}
+			}
 			hijosActual[i] = pid;
 			if (i > 0){
 				close(pipes[i - 1][0]);
@@ -406,18 +431,15 @@ void ejecutar(tline *line){
 		}
 		for (j = 0; j < line->ncommands; j++){
 			result = waitpid(hijosActual[j], &status, WNOHANG);
-			if (result == 0){
+			if (result == 0){//No ha terminado
 				while (hijosST[k] != 0){
-					if (k + 1 > 20){
+					if (k + 1 >= 20){//Si se pasa del espacio máximo
 						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales\n");
-						for (j = 0; j<line->ncommands; j++){
-							if (hijosFG[j] != 0){
-								if (kill(-hijosFG[j], 0) == 0){
-									if (kill(-hijosFG[j], SIGKILL) != 0){
-										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
-									}
-								}
-							}
+						result = getpgid(hijosActual[0]);
+						if (result == -1) {
+							perror("Error al obtener el grupo de procesos");
+						} else if(kill(-result, SIGKILL) != 0){
+							fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
 						}
 						for (k = 0; k<line->ncommands; k++){
 							if (rel[orden][k] != 0){
@@ -428,6 +450,7 @@ void ejecutar(tline *line){
 						free(rel[orden]);
 						lineasbg[orden] = NULL;
 						est[orden] = 0;
+						ncom[orden] = 0;
 						return;
 					}
 					k++;
@@ -437,9 +460,17 @@ void ejecutar(tline *line){
 				if (j == line->ncommands - 1){//Si es el último comando
 					est[orden] = 0;//Estado = Running
 				}
-			} if (result == hijosActual[j]){
-				hijosST[k] = 0;
-			} else if (status != 0){
+			} else if (result == hijosActual[j]){//Ha terminado el hijo j
+				if (j == line->ncommands - 1){//Han terminado todos
+					liberarMemoria(pipes, hijosActual, line->ncommands);
+					free(rel[orden]);
+					lineasbg[orden] = NULL;
+					est[orden] = 0;
+					return;
+				} else {//Aun quedan hijos por acabar
+					rel[orden][j] = -1;
+				}
+			} else if (status != 0){//Error al terminar el hijo
 				perror("Error al terminar el hijo");
 				free(rel[orden]);
 				lineasbg[orden] = NULL;
@@ -472,10 +503,6 @@ void liberarMemoria(int ** pipes, pid_t * hijosActual, int nc){
 }
 
 int execute_bg(int N){
-	if (lineasbg[N] == NULL){
-		printf("No existe ese comando en background\n");
-		return 1;
-	}
 	printf("[%d]- %s\n",N + 1,lineasbg[N]);
 	int j,status;
 	pid_t result;
@@ -516,10 +543,6 @@ int execute_bg(int N){
 }
 
 int execute_fg(int N){
-	if (lineasbg[N] == NULL){
-		printf("No existe ese comando en background\n");
-		return 1;
-	}
 	printf("%s\n",lineasbg[N]);
 	int j,status;
 	hijosFG = (pid_t *)malloc((ncom[N] + 1) * sizeof(pid_t));
@@ -562,7 +585,9 @@ int execute_fg(int N){
 		}
 	}
 	if (kill(hijosST[rel[N][ncom[N] - 1]], 0) != 0){//Si ha muerto el último proceso
-		free(rel[N]);
+		if (rel[N] != NULL){
+			free(rel[N]);
+		}
 		lineasbg[N] = NULL;
 		ncom[N] = 0;
 		est[N] = 0;
@@ -672,18 +697,12 @@ void manejador_sigtstp(int sig) {
 			for (j = 0; j < procs; j++){
 				k = 0;//ahora pasar a los otros arrays		
 				while (hijosST[k] != 0){
-					if (k + 1 > 20){
+					if (k + 1 >= 20){
 						printf("\nNo hay espacio para que meter más procesos en background, espere a que terminen los actuales\n");
-						for (j = 0; j<procs; j++){
-							if (hijosFG[j] != 0){
-								if (kill(-hijosFG[j], 0) == 0){
-									if (kill(-hijosFG[j], SIGKILL) != 0){
-										fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
-									}
-								}
-							}
+						if(kill(-pgid, SIGKILL) != 0){
+							fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
 						}
-						for (k = 0; k<procs; k++){
+						for (k = 0; k<j; k++){
 							if (rel[orden][k] != 0){
 								hijosST[rel[orden][k]] = 0;
 							}
@@ -736,15 +755,30 @@ int check(pid_t p){
 }
 
 void manejador_sigint(int sig) {
-	int i, procs;
+	int i, procs, pos;
         if (hijosFG == NULL) {// Verificar si hijosFG es NULL antes del bucle
         	return;  
         }
  	procs = proceso_en_fg();
+ 	pos = check(hijosFG[procs - 1]);//Compruebas el último proceso de la linea
+	if (pos != -1){//Si se encuentra se quita
+		for (i = 0; i<ncom[pos]; i++){
+			if (rel[pos][i] != -1){
+				hijosST[rel[pos][i]] = 0;
+			}
+		}
+		free(rel[pos]);
+		lineasbg[pos] = NULL;
+		est[pos] = 0;
+		ncom[pos] = 0;
+		if (orden > pos){
+			orden = pos;
+		}
+	}
  	for (i = 0; i<procs; i++){
 		if (hijosFG[i] != 0){
-			if (kill(-hijosFG[i], 0) == 0){
-				if (kill(-hijosFG[i], SIGKILL) != 0){
+			if (kill(hijosFG[i], 0) == 0){
+				if (kill(hijosFG[i], SIGKILL) != 0){
 					fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
 				}
 			}
