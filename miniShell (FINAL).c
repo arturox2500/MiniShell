@@ -224,7 +224,7 @@ int main(int argc, char * argv[]) {
 			    			if (lineasbg[N] == NULL){
 			    				nred = -2;
 			    			} else {
-			    				if (run == 0){
+			    				if (run == 0 || path != NULL){
 			    					execute_bg(N);
 			    				}
 			    				else {
@@ -735,10 +735,14 @@ void manejador_sigtstp(int sig) {
 			perror("Error al obtener el grupo de procesos");
 			return;
 		}
-		if(kill(-pgid, SIGTSTP) != 0){
-			perror("Error al enviar SIGTSTP al grupo de procesos");
-		    	return;
+		
+		for (j = 0; j<procs; j++){
+			if(kill(-hijosFG[j], SIGTSTP) != 0){
+				perror("Error al enviar SIGTSTP al grupo de procesos");
+		    		return;
+			}
 		}
+		
 		pos = check(hijosFG[0]);
 		if (pos == -1) { // Si no está en las variables, se añade
 			rel[orden] = (int *)malloc(procs * sizeof(int));
