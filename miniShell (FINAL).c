@@ -483,11 +483,11 @@ void ejecutar(tline *line){
 				while (hijosST[k] != 0){
 					if (k + 1 >= 20){//Si se pasa del espacio máximo
 						printf("No hay espacio para que meter más procesos en background, espere a que terminen los actuales\n");
-						result = getpgid(hijosActual[0]);
-						if (result == -1) {
-							perror("Error al obtener el grupo de procesos");
-						} else if(kill(-result, SIGKILL) != 0){
-							fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
+						for (j = 0; j<line->ncommands; j++){
+							if(kill(hijosActual[j], SIGKILL) != 0){
+								perror("Error al enviar SIGKILL al procesos");
+		    						return;
+							}
 						}
 						for (k = 0; k<line->ncommands; k++){
 							if (rel[orden][k] != 0){
@@ -737,8 +737,8 @@ void manejador_sigtstp(int sig) {
 		}
 		
 		for (j = 0; j<procs; j++){
-			if(kill(-hijosFG[j], SIGTSTP) != 0){
-				perror("Error al enviar SIGTSTP al grupo de procesos");
+			if(kill(hijosFG[j], SIGTSTP) != 0){
+				perror("Error al enviar SIGTSTP al procesos");
 		    		return;
 			}
 		}
@@ -755,9 +755,13 @@ void manejador_sigtstp(int sig) {
 				while (hijosST[k] != 0){
 					if (k + 1 >= 20){
 						printf("\nNo hay espacio para que meter más procesos en background, espere a que terminen los actuales\n");
-						if(kill(-pgid, SIGKILL) != 0){
-							fprintf(stderr, "Error al intentar matar el proceso: %s\n", strerror(errno));
+						for (j = 0; j<procs; j++){
+							if(kill(hijosFG[j], SIGKILL) != 0){
+								perror("Error al enviar SIGKILL al procesos");
+		    						return;
+							}
 						}
+						
 						for (k = 0; k<j; k++){
 							if (rel[orden][k] != 0){
 								hijosST[rel[orden][k]] = 0;
