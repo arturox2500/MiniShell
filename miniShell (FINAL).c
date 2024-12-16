@@ -726,6 +726,7 @@ void manejador_sigtstp(int sig) {
 		printf(" msh> ");
 		fflush(stdout);
 		return;
+		printf("%d", sig);
 	}
 	int procs = proceso_en_fg(),j,k,pos;
 	pid_t pgid;
@@ -822,6 +823,7 @@ void manejador_sigint(int sig) {
 		printf(" msh> ");
 		fflush(stdout);
         	return;  
+        	printf("%d", sig);
         }
  	procs = proceso_en_fg();
  	pos = check(hijosFG[procs - 1]);//Compruebas el último proceso de la linea
