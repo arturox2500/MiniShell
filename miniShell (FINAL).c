@@ -855,7 +855,7 @@ void execute_umask(char *mask){
 		printf("%04o\n", mascara_act); // imprime la mascara en formato octal si no se pasan argumentos
 	} else {
 		nueva_mask = strtol(mask, &endptr, 8); // convierte la mascara en octal
-		if (*endptr != '\0') {
+		if (*endptr != '\0' || strlen(mask) > 4) {
             		fprintf(stderr, "Error: Umask no valida '%s'. Debe ser un octal.\n", mask);
             		return;
         	}
