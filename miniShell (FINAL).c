@@ -721,6 +721,10 @@ int redirect_stderr(char *error_file) {
 
 void manejador_sigtstp(int sig) {
 	if (hijosFG == NULL){
+		printf("\n");
+		print_dir();
+		printf(" msh> ");
+		fflush(stdout);
 		return;
 	}
 	int procs = proceso_en_fg(),j,k,pos;
@@ -805,6 +809,10 @@ int check(pid_t p){
 void manejador_sigint(int sig) {
 	int i, procs, pos;
         if (hijosFG == NULL) {// Verificar si hijosFG es NULL antes del bucle
+        	printf("\n");
+        	print_dir();
+		printf(" msh> ");
+		fflush(stdout);
         	return;  
         }
  	procs = proceso_en_fg();
