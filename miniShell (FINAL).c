@@ -373,7 +373,11 @@ void ejecutar(tline *line){
 			liberarMemoria(pipes, hijosActual, j);
 			return;
 		}
-		pipe(pipes[j]);
+		if (pipe(pipes[j]) != 0){
+			perror("Error al crear el pipe");
+			liberarMemoria(pipes, hijosActual, j);
+			return;
+		}
 	}
 	pid_t pid, result;
 	for (i = 0; i < line->ncommands; i++){
