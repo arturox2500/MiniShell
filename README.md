@@ -2,7 +2,7 @@
 
 ## 📌 Descripción
 
-Este proyecto se desarrolló como parte de la asignatura **Sistemas Operativos** del Grado en Ingeniería del Software. Consiste en la implementación de un **intérprete de comandos (MiniShell)** en lenguaje **C** para entornos **Linux**. La shell es capaz de:
+Este proyecto Consiste en la implementación de un **intérprete de comandos (MiniShell)** en lenguaje **C** para entornos **Linux**. La shell es capaz de:
 
 - Ejecutar mandatos secuenciales y en pipeline (`|`)
 - Soportar redirecciones:
